@@ -1,0 +1,597 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="mb-4">
+
+    <h2>Thuật toán Naïve Bayes</h2>
+
+    <p class="text-muted">
+        Giải thích cách thuật toán Naïve Bayes được sử dụng
+        để phân loại thư rác trong chương trình.
+    </p>
+
+</div>
+
+
+<!-- GIỚI THIỆU -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body p-4">
+
+        <h4 class="mb-3">
+            1. Naïve Bayes là gì?
+        </h4>
+
+        <p>
+            Naïve Bayes là một thuật toán phân loại dựa trên
+            định lý Bayes. Thuật toán tính xác suất một dữ liệu
+            thuộc vào từng lớp và chọn lớp có xác suất cao nhất.
+        </p>
+
+        <p class="mb-0">
+            Trong chương trình này, Naïve Bayes được sử dụng
+            để phân loại email thành hai lớp:
+        </p>
+
+        <div class="mt-3">
+
+            <span class="badge bg-danger me-2 fs-6">
+                SPAM
+            </span>
+
+            <span class="badge bg-success fs-6">
+                HAM
+            </span>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- CÔNG THỨC -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body p-4">
+
+        <h4 class="mb-3">
+            2. Công thức Bayes
+        </h4>
+
+        <div class="text-center border rounded p-4 mb-4">
+
+            <h2>
+                P(C|X) =
+                P(X|C) × P(C) / P(X)
+            </h2>
+
+        </div>
+
+
+        <table class="table">
+
+            <tbody>
+
+                <tr>
+
+                    <td>
+                        <strong>P(C|X)</strong>
+                    </td>
+
+                    <td>
+                        Xác suất email thuộc lớp C
+                        khi biết nội dung email X.
+                    </td>
+
+                </tr>
+
+
+                <tr>
+
+                    <td>
+                        <strong>P(X|C)</strong>
+                    </td>
+
+                    <td>
+                        Xác suất xuất hiện các đặc trưng
+                        của email X trong lớp C.
+                    </td>
+
+                </tr>
+
+
+                <tr>
+
+                    <td>
+                        <strong>P(C)</strong>
+                    </td>
+
+                    <td>
+                        Xác suất ban đầu của lớp
+                        SPAM hoặc HAM.
+                    </td>
+
+                </tr>
+
+
+                <tr>
+
+                    <td>
+                        <strong>P(X)</strong>
+                    </td>
+
+                    <td>
+                        Xác suất xuất hiện của dữ liệu X.
+                    </td>
+
+                </tr>
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<!-- QUY TRÌNH -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body p-4">
+
+        <h4 class="mb-4">
+            3. Quy trình phân loại Email
+        </h4>
+
+
+        <div class="row text-center g-3">
+
+            <div class="col">
+
+                <div class="border rounded p-3 h-100">
+
+                    <i class="bi bi-envelope fs-2"></i>
+
+                    <h6 class="mt-2">
+                        Email đầu vào
+                    </h6>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-auto d-flex align-items-center">
+
+                <i class="bi bi-arrow-right fs-3"></i>
+
+            </div>
+
+
+            <div class="col">
+
+                <div class="border rounded p-3 h-100">
+
+                    <i class="bi bi-filter fs-2"></i>
+
+                    <h6 class="mt-2">
+                        Tiền xử lý
+                    </h6>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-auto d-flex align-items-center">
+
+                <i class="bi bi-arrow-right fs-3"></i>
+
+            </div>
+
+
+            <div class="col">
+
+                <div class="border rounded p-3 h-100">
+
+                    <i class="bi bi-file-earmark-binary fs-2"></i>
+
+                    <h6 class="mt-2">
+                        TF-IDF
+                    </h6>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-auto d-flex align-items-center">
+
+                <i class="bi bi-arrow-right fs-3"></i>
+
+            </div>
+
+
+            <div class="col">
+
+                <div class="border rounded p-3 h-100">
+
+                    <i class="bi bi-cpu fs-2"></i>
+
+                    <h6 class="mt-2">
+                        Naïve Bayes
+                    </h6>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-auto d-flex align-items-center">
+
+                <i class="bi bi-arrow-right fs-3"></i>
+
+            </div>
+
+
+            <div class="col">
+
+                <div class="border rounded p-3 h-100">
+
+                    <i class="bi bi-check-circle fs-2"></i>
+
+                    <h6 class="mt-2">
+                        SPAM / HAM
+                    </h6>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- TIỀN XỬ LÝ -->
+
+<div class="row g-4 mb-4">
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body p-4">
+
+                <h4 class="mb-3">
+                    4. Tiền xử lý văn bản
+                </h4>
+
+                <p>
+                    Trước khi đưa email vào mô hình,
+                    chương trình thực hiện các bước:
+                </p>
+
+                <ul>
+
+                    <li>Chuyển văn bản thành chữ thường.</li>
+
+                    <li>Loại bỏ URL.</li>
+
+                    <li>Loại bỏ địa chỉ email.</li>
+
+                    <li>Loại bỏ ký tự đặc biệt.</li>
+
+                    <li>Loại bỏ khoảng trắng dư thừa.</li>
+
+                </ul>
+
+
+                <div class="alert alert-secondary">
+
+                    <strong>Ví dụ:</strong>
+
+                    <br><br>
+
+                    Trước:
+
+                    <br>
+
+                    <code>
+                        WIN $1000!!! Click https://abc.com NOW!
+                    </code>
+
+                    <br><br>
+
+                    Sau:
+
+                    <br>
+
+                    <code>
+                        win click now
+                    </code>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- TF-IDF -->
+
+    <div class="col-md-6">
+
+        <div class="card shadow-sm h-100">
+
+            <div class="card-body p-4">
+
+                <h4 class="mb-3">
+                    5. TF-IDF
+                </h4>
+
+                <p>
+                    Máy tính không thể trực tiếp xử lý
+                    văn bản nên email phải được chuyển
+                    thành các vector số.
+                </p>
+
+                <p>
+                    Chương trình sử dụng:
+                </p>
+
+                <div class="alert alert-primary">
+
+                    <strong>
+                        TfidfVectorizer
+                    </strong>
+
+                </div>
+
+                <p>
+                    TF-IDF đánh giá mức độ quan trọng
+                    của một từ trong email dựa trên
+                    tần suất xuất hiện của từ đó.
+                </p>
+
+
+                <div class="border rounded p-3">
+
+                    <strong>
+                        "free prize money"
+                    </strong>
+
+                    <br>
+
+                    ↓
+
+                    <br>
+
+                    <code>
+                        [0.72, 0.43, 0.55, ...]
+                    </code>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- MULTINOMIAL NB -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body p-4">
+
+        <h4 class="mb-3">
+            6. Multinomial Naïve Bayes
+        </h4>
+
+        <p>
+            Sau khi email được chuyển thành vector,
+            dữ liệu được đưa vào mô hình:
+        </p>
+
+        <div class="alert alert-info">
+
+            <strong>
+                MultinomialNB(alpha=1.0)
+            </strong>
+
+        </div>
+
+
+        <p>
+            Mô hình tính xác suất email thuộc từng lớp:
+        </p>
+
+
+        <div class="row g-3">
+
+            <div class="col-md-6">
+
+                <div class="border rounded p-4 text-center">
+
+                    <h5>
+                        P(SPAM | Email)
+                    </h5>
+
+                    <span class="text-danger fs-3">
+                        SPAM
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-6">
+
+                <div class="border rounded p-4 text-center">
+
+                    <h5>
+                        P(HAM | Email)
+                    </h5>
+
+                    <span class="text-success fs-3">
+                        HAM
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="mt-4">
+
+            <p>
+                Nếu:
+            </p>
+
+            <div class="border rounded p-3 mb-3">
+
+                P(SPAM | Email)
+                &gt;
+                P(HAM | Email)
+
+                <strong class="text-danger">
+                    → SPAM
+                </strong>
+
+            </div>
+
+            <div class="border rounded p-3">
+
+                P(HAM | Email)
+                &gt;
+                P(SPAM | Email)
+
+                <strong class="text-success">
+                    → HAM
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- TRAINING -->
+
+<div class="card shadow-sm">
+
+    <div class="card-body p-4">
+
+        <h4 class="mb-4">
+            7. Quy trình huấn luyện của chương trình
+        </h4>
+
+
+        <div class="row g-3">
+
+            <div class="col-md-3">
+
+                <div class="border rounded p-3 text-center h-100">
+
+                    <h3>1000</h3>
+
+                    <span class="text-muted">
+                        Tổng dữ liệu
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-3">
+
+                <div class="border rounded p-3 text-center h-100">
+
+                    <h3>80%</h3>
+
+                    <span class="text-muted">
+                        Training
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-3">
+
+                <div class="border rounded p-3 text-center h-100">
+
+                    <h3>20%</h3>
+
+                    <span class="text-muted">
+                        Testing
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="col-md-3">
+
+                <div class="border rounded p-3 text-center h-100">
+
+                    <h3 class="text-success">
+                        97.50%
+                    </h3>
+
+                    <span class="text-muted">
+                        Accuracy hiện tại
+                    </span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <hr class="my-4">
+
+
+        <p class="mb-0">
+
+            Dataset được chia thành
+            <strong>80% dữ liệu huấn luyện</strong>
+            và
+            <strong>20% dữ liệu kiểm thử</strong>.
+
+            Mô hình được huấn luyện bằng
+            <strong>Multinomial Naïve Bayes</strong>
+            kết hợp với
+            <strong>TF-IDF</strong>.
+
+        </p>
+
+    </div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,418 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="mb-4">
+
+    <h2>Huấn luyện mô hình</h2>
+
+    <p class="text-muted">
+        Huấn luyện mô hình phân loại thư rác bằng thuật toán
+        Multinomial Naïve Bayes.
+    </p>
+
+</div>
+
+{% if not model_status.trained %}
+
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    <strong>Mô hình chưa được huấn luyện.</strong>
+    Hãy huấn luyện để tạo model và vectorizer.
+</div>
+
+{% elif model_status.outdated %}
+
+<div class="alert alert-warning" role="alert">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Dataset đã thay đổi.
+    <strong>Bạn nên huấn luyện lại mô hình.</strong>
+</div>
+
+{% else %}
+
+<div class="alert alert-success" role="alert">
+    <i class="bi bi-check-circle me-1"></i>
+    Model hiện tại đã được huấn luyện với Dataset mới nhất.
+</div>
+
+{% endif %}
+
+
+<div class="row g-4">
+
+    <!-- THÔNG TIN DATASET -->
+
+    <div class="col-md-7">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body p-4">
+
+                <h4 class="mb-4">
+                    Thông tin huấn luyện
+                </h4>
+
+
+                <div class="row g-3">
+
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted">
+                                Tổng dữ liệu
+                            </small>
+
+                            <h3 class="mt-2">
+                                {{ total }}
+                            </h3>
+
+                            <span class="text-muted">
+                                email
+                            </span>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted">
+                                Thuật toán
+                            </small>
+
+                            <h5 class="mt-2">
+                                Multinomial Naïve Bayes
+                            </h5>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted">
+                                Training
+                            </small>
+
+                            <h3 class="mt-2">
+                                80%
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted">
+                                Testing
+                            </small>
+
+                            <h3 class="mt-2">
+                                20%
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted">
+                                SPAM
+                            </small>
+
+                            <h3 class="mt-2 text-danger">
+                                {{ spam_count }}
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="col-md-6">
+
+                        <div class="border rounded p-3">
+
+                            <small class="text-muted">
+                                HAM
+                            </small>
+
+                            <h3 class="mt-2 text-success">
+                                {{ ham_count }}
+                            </h3>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+
+                <hr class="my-4">
+
+
+                <div class="mb-3">
+
+                    <strong>Vector hóa:</strong>
+
+                    <span class="badge bg-primary">
+                        TF-IDF
+                    </span>
+
+                </div>
+
+
+                <div class="mb-4">
+
+                    <strong>Tham số alpha:</strong>
+
+                    <span class="badge bg-secondary">
+                        1.0
+                    </span>
+
+                </div>
+
+
+                <form method="POST">
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary btn-lg"
+                    >
+
+                        <i class="bi bi-cpu"></i>
+
+                        Huấn luyện mô hình
+
+                    </button>
+
+                </form>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- KẾT QUẢ -->
+
+    <div class="col-md-5">
+
+        <div class="card shadow-sm">
+
+            <div class="card-body p-4">
+
+                <h4 class="mb-4">
+                    Kết quả huấn luyện
+                </h4>
+
+
+                {% if result %}
+
+                <div class="alert alert-success">
+
+                    <i class="bi bi-check-circle"></i>
+
+                    Huấn luyện mô hình thành công!
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <span class="text-muted">
+                        Tổng dữ liệu
+                    </span>
+
+                    <h4>
+                        {{ result.total }}
+                    </h4>
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <span class="text-muted">
+                        Training samples
+                    </span>
+
+                    <h4>
+                        {{ result.train_size }}
+                    </h4>
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <span class="text-muted">
+                        Testing samples
+                    </span>
+
+                    <h4>
+                        {{ result.test_size }}
+                    </h4>
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <span class="text-muted">
+                        Vocabulary
+                    </span>
+
+                    <h4>
+                        {{ result.vocabulary_size }}
+                    </h4>
+
+                </div>
+
+
+                <div class="mb-3">
+
+                    <span class="text-muted">
+                        Accuracy
+                    </span>
+
+                    <h2 class="text-success">
+
+                        {{ "%.2f"|format(
+                            result.accuracy * 100
+                        ) }}%
+
+                    </h2>
+
+                </div>
+
+
+                <div>
+
+                    <span class="text-muted">
+                        Thời gian huấn luyện
+                    </span>
+
+                    <h4>
+
+                        {{ "%.3f"|format(
+                            result.training_time
+                        ) }} giây
+
+                    </h4>
+
+                </div>
+
+
+                {% else %}
+
+                <div class="text-center py-5">
+
+                    <i
+                        class="bi bi-cpu"
+                        style="font-size: 50px;"
+                    ></i>
+
+                    <p class="text-muted mt-3">
+
+                        Nhấn nút
+                        <strong>Huấn luyện mô hình</strong>
+                        để bắt đầu.
+
+                    </p>
+
+                </div>
+
+                {% endif %}
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% if model_info %}
+
+<div class="card shadow-sm mt-4">
+
+    <div class="card-body p-4">
+
+        <h4 class="mb-4">Thông tin Model hiện tại</h4>
+
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <tbody>
+                    <tr>
+                        <th>Thuật toán</th>
+                        <td>{{ model_info.model_name }}</td>
+                    </tr>
+                    <tr>
+                        <th>Vectorizer</th>
+                        <td>{{ model_info.vectorizer }}</td>
+                    </tr>
+                    <tr>
+                        <th>Alpha</th>
+                        <td>{{ model_info.alpha }}</td>
+                    </tr>
+                    <tr>
+                        <th>Dataset</th>
+                        <td>{{ model_info.total }} email</td>
+                    </tr>
+                    <tr>
+                        <th>Training samples</th>
+                        <td>{{ model_info.train_size }}</td>
+                    </tr>
+                    <tr>
+                        <th>Testing samples</th>
+                        <td>{{ model_info.test_size }}</td>
+                    </tr>
+                    <tr>
+                        <th>Vocabulary</th>
+                        <td>{{ model_info.vocabulary_size }}</td>
+                    </tr>
+                    <tr>
+                        <th>Accuracy</th>
+                        <td class="text-success fw-bold">
+                            {{ "%.2f"|format(model_info.accuracy * 100) }}%
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Thời gian huấn luyện</th>
+                        <td>
+                            {{ "%.3f"|format(model_info.training_time) }} giây
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Huấn luyện lúc</th>
+                        <td>{{ model_info.trained_at }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</div>
+
+{% endif %}
+
+{% endblock %}

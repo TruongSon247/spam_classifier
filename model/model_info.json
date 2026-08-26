@@ -1,0 +1,12 @@
+{
+    "model_name": "Multinomial Naive Bayes",
+    "vectorizer": "TF-IDF",
+    "alpha": 1.0,
+    "total": 1102,
+    "train_size": 881,
+    "test_size": 221,
+    "vocabulary_size": 208,
+    "accuracy": 0.9728506787330317,
+    "training_time": 0.024639129638671875,
+    "trained_at": "27/08/2026 03:58:14"
+}

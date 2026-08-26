@@ -1,0 +1,659 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div
+    class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4"
+>
+
+    <div>
+        <h2>Dataset</h2>
+
+        <p class="text-muted mb-0">
+            Dữ liệu huấn luyện mô hình Naïve Bayes
+        </p>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+
+    <span
+        class="badge bg-primary fs-6 d-flex align-items-center"
+    >
+        Tổng: {{ total }} email
+    </span>
+
+    <button
+        type="button"
+        class="btn btn-primary"
+        data-bs-toggle="modal"
+        data-bs-target="#importModal"
+    >
+        <i class="bi bi-upload"></i>
+        Import CSV
+    </button>
+
+    <button
+        type="button"
+        class="btn btn-success"
+        data-bs-toggle="modal"
+        data-bs-target="#addEmailModal"
+    >
+        <i class="bi bi-plus-circle"></i>
+        Thêm Email
+    </button>
+
+    </div>
+
+</div>
+
+{% if request.args.get("imported") %}
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+    Đã import thành công {{ request.args.get("imported") }} email.
+    <button
+        type="button"
+        class="btn-close"
+        data-bs-dismiss="alert"
+        aria-label="Đóng"
+    ></button>
+</div>
+{% elif request.args.get("import_error") %}
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+    {% set import_error = request.args.get("import_error") %}
+    {% if import_error == "missing_file" %}
+        Vui lòng chọn tệp CSV.
+    {% elif import_error == "invalid_type" %}
+        Tệp được chọn phải có định dạng CSV.
+    {% elif import_error == "missing_columns" %}
+        Tệp CSV phải có hai cột: label và text.
+    {% elif import_error == "no_valid_rows" %}
+        Tệp CSV không có dòng hợp lệ với nhãn spam hoặc ham.
+    {% else %}
+        Không thể đọc tệp CSV. Vui lòng kiểm tra lại định dạng và encoding UTF-8.
+    {% endif %}
+    <button
+        type="button"
+        class="btn-close"
+        data-bs-dismiss="alert"
+        aria-label="Đóng"
+    ></button>
+</div>
+{% endif %}
+
+
+<!-- =========================
+     TÌM KIẾM VÀ BỘ LỌC
+========================= -->
+
+<div class="card shadow-sm mb-4">
+
+    <div class="card-body">
+
+        <form method="GET" class="row g-3">
+
+            <!-- TÌM KIẾM -->
+
+            <div class="col-md-7">
+
+                <label class="form-label">
+                    Tìm kiếm nội dung
+                </label>
+
+                <input
+                    type="text"
+                    name="search"
+                    class="form-control"
+                    placeholder="Nhập nội dung cần tìm..."
+                    value="{{ search }}"
+                >
+
+            </div>
+
+
+            <!-- LỌC -->
+
+            <div class="col-md-3">
+
+                <label class="form-label">
+                    Loại Email
+                </label>
+
+                <select
+                    name="label"
+                    class="form-select"
+                >
+
+                    <option
+                        value="all"
+                        {% if label == "all" %}selected{% endif %}
+                    >
+                        Tất cả
+                    </option>
+
+                    <option
+                        value="spam"
+                        {% if label == "spam" %}selected{% endif %}
+                    >
+                        SPAM
+                    </option>
+
+                    <option
+                        value="ham"
+                        {% if label == "ham" %}selected{% endif %}
+                    >
+                        HAM
+                    </option>
+
+                </select>
+
+            </div>
+
+
+            <!-- BUTTON -->
+
+            <div class="col-md-2 d-flex align-items-end">
+
+                <button
+                    type="submit"
+                    class="btn btn-primary w-100"
+                >
+                    <i class="bi bi-search"></i>
+                    Tìm
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- =========================
+     BẢNG DATASET
+========================= -->
+
+<div class="card shadow-sm">
+
+    <div class="card-body">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle">
+
+                <thead>
+
+                    <tr>
+                        <th style="width: 80px;">
+                            STT
+                        </th>
+
+                        <th style="width: 120px;">
+                            Nhãn
+                        </th>
+
+                        <th>
+                            Nội dung Email
+                        </th>
+
+                        <th style="width: 100px;">
+                            Thao tác
+                        </th>
+
+                    </tr>
+
+                </thead>
+                
+
+                <tbody>
+
+                    {% for email in emails %}
+
+                    <tr>
+
+                        <td>
+                            {{ start_index + loop.index }}
+                        </td>
+
+                        <td>
+
+                            {% if email.label == "spam" %}
+
+                                <span class="badge bg-danger">
+                                    SPAM
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-success">
+                                    HAM
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td>
+                            {{ email.text }}
+                        </td>
+                         <!-- NÚT XÓA -->
+                        <td>
+
+                            <form
+                                method="POST"
+                                action="{{ url_for(
+                                    'delete_dataset',
+                                    index=email['index']
+                                ) }}"
+                                onsubmit="return confirm('Bạn có chắc muốn xóa email này không?')"
+                            >
+
+                                <button
+                                    type="submit"
+                                    class="btn btn-sm btn-outline-danger"
+                                >
+                                    <i class="bi bi-trash"></i>
+                                    Xóa
+                                </button>
+
+                            </form>
+
+                        </td>
+
+                    </tr>
+
+                    {% else %}
+
+                    <tr>
+
+                        <td
+                            colspan="4"
+                            class="text-center text-muted py-4"
+                        >
+                            Không tìm thấy dữ liệu.
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+
+        <!-- =========================
+             PHÂN TRANG
+        ========================= -->
+
+        {% if total_pages > 1 %}
+
+        <nav class="mt-4">
+
+            <ul class="pagination justify-content-center">
+
+
+                <!-- TRANG TRƯỚC -->
+
+                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+
+                    <a
+                        class="page-link"
+                        href="{{ url_for(
+                            'dataset',
+                            page=page-1,
+                            search=search,
+                            label=label
+                        ) }}"
+                    >
+                        Trước
+                    </a>
+
+                </li>
+
+
+                <!-- SỐ TRANG -->
+
+                {% for p in range(1, total_pages + 1) %}
+
+                    {% if
+                        p == 1
+                        or p == total_pages
+                        or (p >= page - 2 and p <= page + 2)
+                    %}
+
+                        <li
+                            class="page-item
+                            {% if p == page %}active{% endif %}"
+                        >
+
+                            <a
+                                class="page-link"
+                                href="{{ url_for(
+                                    'dataset',
+                                    page=p,
+                                    search=search,
+                                    label=label
+                                ) }}"
+                            >
+                                {{ p }}
+                            </a>
+
+                        </li>
+
+                    {% endif %}
+
+                {% endfor %}
+
+
+                <!-- TRANG SAU -->
+
+                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+
+                    <a
+                        class="page-link"
+                        href="{{ url_for(
+                            'dataset',
+                            page=page+1,
+                            search=search,
+                            label=label
+                        ) }}"
+                    >
+                        Sau
+                    </a>
+
+                </li>
+
+            </ul>
+
+        </nav>
+
+        {% endif %}
+
+
+        <div class="text-center text-muted">
+
+            Trang {{ page }} / {{ total_pages }}
+
+        </div>
+
+    </div>
+
+</div>
+
+<div
+    class="modal fade"
+    id="addEmailModal"
+    tabindex="-1"
+>
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <form
+                method="POST"
+                action="{{ url_for('add_dataset') }}"
+            >
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+                        Thêm Email vào Dataset
+                    </h5>
+
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                    ></button>
+
+                </div>
+
+
+                <div class="modal-body">
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Nhãn
+                        </label>
+
+                        <select
+                            name="label"
+                            class="form-select"
+                            required
+                        >
+
+                            <option value="ham">
+                                HAM
+                            </option>
+
+                            <option value="spam">
+                                SPAM
+                            </option>
+
+                        </select>
+
+                    </div>
+
+
+                    <div class="mb-3">
+
+                        <label class="form-label">
+                            Nội dung Email
+                        </label>
+
+                        <textarea
+                            name="text"
+                            class="form-control"
+                            rows="6"
+                            required
+                            placeholder="Nhập nội dung email..."
+                        ></textarea>
+
+                    </div>
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Hủy
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="btn btn-success"
+                    >
+                        <i class="bi bi-save"></i>
+                        Lưu Email
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- MODAL IMPORT CSV -->
+<div
+    class="modal fade"
+    id="importModal"
+    tabindex="-1"
+    aria-labelledby="importModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form
+                method="POST"
+                action="{{ url_for('import_dataset') }}"
+                enctype="multipart/form-data"
+            >
+                <div class="modal-header">
+                    <h5 class="modal-title" id="importModalLabel">
+                        Import Dataset từ CSV
+                    </h5>
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                        aria-label="Đóng"
+                    ></button>
+                </div>
+
+                <div class="modal-body">
+                    <label for="datasetCsv" class="form-label">
+                        Tệp CSV
+                    </label>
+                    <input
+                        type="file"
+                        id="datasetCsv"
+                        name="file"
+                        class="form-control"
+                        accept=".csv,text/csv"
+                        required
+                    >
+                    <div class="form-text">
+                        Tệp cần có hai cột label và text. Nhãn hợp lệ là spam hoặc ham.
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Hủy
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i>
+                        Import
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div
+    class="modal fade"
+    id="importModal"
+    tabindex="-1"
+>
+
+    <div class="modal-dialog">
+
+        <div class="modal-content">
+
+            <form
+                method="POST"
+                action="{{ url_for('import_dataset') }}"
+                enctype="multipart/form-data"
+            >
+
+                <div class="modal-header">
+
+                    <h5 class="modal-title">
+                        Import Dataset CSV
+                    </h5>
+
+                    <button
+                        type="button"
+                        class="btn-close"
+                        data-bs-dismiss="modal"
+                    ></button>
+
+                </div>
+
+
+                <div class="modal-body">
+
+                    <p class="text-muted">
+
+                        File CSV phải có hai cột:
+
+                    </p>
+
+                    <pre>label,text</pre>
+
+
+                    <div class="mb-3">
+
+                        <input
+                            type="file"
+                            name="file"
+                            class="form-control"
+                            accept=".csv"
+                            required
+                        >
+
+                    </div>
+
+
+                    <div class="alert alert-info">
+
+                        Ví dụ:
+
+                        <br>
+
+                        <code>
+                            spam,"You won a prize!"
+                        </code>
+
+                        <br>
+
+                        <code>
+                            ham,"Meeting tomorrow."
+                        </code>
+
+                    </div>
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                    >
+                        Hủy
+                    </button>
+
+                    <button
+                        type="submit"
+                        class="btn btn-primary"
+                    >
+
+                        <i class="bi bi-upload"></i>
+                        Import
+
+                    </button>
+
+                </div>
+
+            </form>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}

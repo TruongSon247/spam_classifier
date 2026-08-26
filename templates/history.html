@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h2>Lịch sử dự đoán</h2>
+
+        <p class="text-muted mb-0">
+            Danh sách các email đã được phân loại bởi mô hình Naïve Bayes.
+        </p>
+
+    </div>
+
+
+    {% if predictions %}
+
+    <form
+        method="POST"
+        action="{{ url_for('delete_all_history') }}"
+        onsubmit="return confirm('Bạn có chắc muốn xóa toàn bộ lịch sử không?')"
+    >
+
+        <button
+            type="submit"
+            class="btn btn-danger"
+        >
+
+            <i class="bi bi-trash"></i>
+
+            Xóa tất cả
+
+        </button>
+
+    </form>
+
+    {% endif %}
+
+</div>
+
+
+<div class="card shadow-sm">
+
+    <div class="card-body">
+
+        <div class="table-responsive">
+
+            <table class="table table-hover align-middle">
+
+                <thead>
+
+                    <tr>
+                        <th>ID</th>
+                        <th>Tiêu đề</th>
+                        <th>Nội dung</th>
+                        <th>Kết quả</th>
+                        <th>SPAM</th>
+                        <th>HAM</th>
+                        <th>Thời gian</th>
+                    </tr>
+
+                </thead>
+
+
+                <tbody>
+
+                    {% for item in predictions %}
+
+                    <tr>
+
+                        <td>
+                            {{ item["id"] }}
+                        </td>
+
+
+                        <td>
+
+                            {% if item["subject"] %}
+
+                                {{ item["subject"] }}
+
+                            {% else %}
+
+                                <span class="text-muted">
+                                    Không có tiêu đề
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td style="max-width: 350px;">
+
+                            {{ item["message"][:100] }}
+
+                            {% if item["message"]|length > 100 %}
+                                ...
+                            {% endif %}
+
+                        </td>
+
+
+                        <td>
+
+                            {% if item["prediction"] == "spam" %}
+
+                                <span class="badge bg-danger">
+                                    SPAM
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-success">
+                                    HAM
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+
+                        <td>
+
+                            {{ "%.2f"|format(
+                                item["spam_probability"] * 100
+                            ) }}%
+
+                        </td>
+
+
+                        <td>
+
+                            {{ "%.2f"|format(
+                                item["ham_probability"] * 100
+                            ) }}%
+
+                        </td>
+
+
+                        <td>
+                            {{ item["created_at"] }}
+                        </td>
+
+                        <td>
+
+    <form
+        method="POST"
+        action="{{ url_for(
+            'delete_history',
+            id=item['id']
+        ) }}"
+        onsubmit="return confirm('Bạn có chắc muốn xóa lịch sử này không?')"
+    >
+
+        <button
+            type="submit"
+            class="btn btn-sm btn-outline-danger"
+        >
+
+            <i class="bi bi-trash"></i>
+
+            Xóa
+
+        </button>
+
+    </form>
+
+</td>
+
+                    </tr>
+
+
+                    {% else %}
+
+                    <tr>
+
+                        <td
+                            colspan="8"
+                            class="text-center text-muted py-5"
+                        >
+                            Chưa có lịch sử dự đoán.
+                        </td>
+
+                    </tr>
+
+                    {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
