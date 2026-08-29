@@ -1,10 +1,20 @@
-from flask import Flask, render_template, request, redirect, url_for, flash
+from flask import (
+    Flask,
+    flash,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    url_for
+)
 import json
 import pandas as pd
 import sqlite3
 import os
+import uuid
 
-from ml.predict import predict_email
+from ml.predict import predict_batch_emails, predict_email
+from ml.compare_models import compare_models
 from ml.train import train_model
 from ml.evaluate import evaluate_model
 
@@ -36,6 +46,8 @@ def init_db():
 def get_model_status():
 
     dataset_path = "dataset/spam_dataset.csv"
+    preprocessing_path = "ml/preprocessing.py"
+    train_path = "ml/train.py"
     model_path = "model/model.pkl"
     vectorizer_path = "model/vectorizer.pkl"
 
@@ -49,29 +61,38 @@ def get_model_status():
             "message": "Mô hình chưa được huấn luyện."
         }
 
-    dataset_time = os.path.getmtime(dataset_path)
-    model_time = os.path.getmtime(model_path)
-    vectorizer_time = os.path.getmtime(vectorizer_path)
-
-    oldest_model_time = min(
-        model_time,
-        vectorizer_time
-    )
-    outdated = dataset_time > oldest_model_time
-
-    if outdated:
-        message = (
-            "Dataset đã thay đổi sau lần huấn luyện gần nhất. "
-            "Bạn nên huấn luyện lại mô hình."
+    try:
+        model_time = min(
+            os.path.getmtime(model_path),
+            os.path.getmtime(vectorizer_path)
         )
-    else:
-        message = "Mô hình đang sử dụng phiên bản Dataset mới nhất."
+        source_times = [
+            os.path.getmtime(path)
+            for path in (dataset_path, preprocessing_path, train_path)
+            if os.path.exists(path)
+        ]
+        outdated = max(source_times) > model_time
 
-    return {
-        "trained": True,
-        "outdated": outdated,
-        "message": message
-    }
+        if outdated:
+            message = (
+                "Dataset hoặc cấu hình AI đã thay đổi. "
+                "Cần huấn luyện lại mô hình."
+            )
+        else:
+            message = "Mô hình đã sẵn sàng."
+
+        return {
+            "trained": True,
+            "outdated": outdated,
+            "message": message
+        }
+    except (OSError, ValueError) as error:
+        print("Model status error:", error)
+        return {
+            "trained": False,
+            "outdated": True,
+            "message": "Không thể kiểm tra trạng thái mô hình."
+        }
 
 
 def get_model_info():
@@ -153,6 +174,15 @@ app = Flask(__name__)
 app.secret_key = "spam-classifier-secret-key"
 
 init_db()
+
+
+@app.context_processor
+def inject_global_data():
+
+    return {
+        "global_model_status": get_model_status()
+    }
+
 
 @app.route("/")
 def index():
@@ -284,6 +314,134 @@ def predict():
         error=error,
         model_status=model_status
     )
+
+
+@app.route("/predict/batch", methods=["GET", "POST"])
+def batch_predict():
+    results = None
+    total = 0
+    spam_count = 0
+    ham_count = 0
+    download_file = None
+    error = None
+    model_status = get_model_status()
+
+    if request.method == "POST":
+        if not model_status["trained"]:
+            error = "Mô hình chưa được huấn luyện."
+        elif "file" not in request.files:
+            error = "Vui lòng chọn file CSV."
+        else:
+            file = request.files["file"]
+
+            if file.filename == "":
+                error = "Vui lòng chọn file CSV."
+            elif not file.filename.lower().endswith(".csv"):
+                error = "Chỉ chấp nhận file định dạng CSV."
+            else:
+                try:
+                    df = pd.read_csv(file)
+
+                    if "text" not in df.columns:
+                        error = "File CSV phải có cột 'text'."
+                    else:
+                        if "subject" not in df.columns:
+                            df["subject"] = ""
+
+                        df = df[["subject", "text"]].copy()
+                        df["subject"] = (
+                            df["subject"].fillna("").astype(str).str.strip()
+                        )
+                        df["text"] = (
+                            df["text"].fillna("").astype(str).str.strip()
+                        )
+                        df = df[df["text"] != ""].reset_index(drop=True)
+
+                        max_batch_rows = 500
+                        if len(df) == 0:
+                            error = "File CSV không có Email hợp lệ."
+                        elif len(df) > max_batch_rows:
+                            error = (
+                                f"Chỉ cho phép tối đa {max_batch_rows} "
+                                "Email mỗi lần."
+                            )
+                        else:
+                            predictions = predict_batch_emails(
+                                df["text"].tolist()
+                            )
+
+                            if predictions is None:
+                                error = "Không thể tải mô hình dự đoán."
+                            else:
+                                df["prediction"] = [
+                                    item["prediction"] for item in predictions
+                                ]
+                                df["spam_probability"] = [
+                                    round(item["spam_probability"] * 100, 2)
+                                    for item in predictions
+                                ]
+                                df["ham_probability"] = [
+                                    round(item["ham_probability"] * 100, 2)
+                                    for item in predictions
+                                ]
+                                df["confidence"] = [
+                                    round(item["confidence"] * 100, 2)
+                                    for item in predictions
+                                ]
+
+                                total = len(df)
+                                spam_count = int(
+                                    df["prediction"].str.lower().eq("spam").sum()
+                                )
+                                ham_count = int(
+                                    df["prediction"].str.lower().eq("ham").sum()
+                                )
+
+                                os.makedirs("temp", exist_ok=True)
+                                download_file = (
+                                    f"batch_result_{uuid.uuid4()}.csv"
+                                )
+                                df.to_csv(
+                                    os.path.join("temp", download_file),
+                                    index=False,
+                                    encoding="utf-8-sig"
+                                )
+                                results = df.to_dict(orient="records")
+                except (OSError, UnicodeError, pd.errors.ParserError) as error_detail:
+                    print("Batch prediction error:", error_detail)
+                    error = (
+                        "Không thể xử lý file CSV. "
+                        "Hãy kiểm tra lại định dạng file."
+                    )
+
+    return render_template(
+        "batch_predict.html",
+        results=results,
+        total=total,
+        spam_count=spam_count,
+        ham_count=ham_count,
+        download_file=download_file,
+        error=error,
+        model_status=model_status
+    )
+
+
+@app.route("/predict/batch/download/<filename>")
+def download_batch_result(filename):
+    prefix = "batch_result_"
+    suffix = ".csv"
+
+    if not filename.startswith(prefix) or not filename.endswith(suffix):
+        return "File không hợp lệ.", 400
+
+    identifier = filename[len(prefix):-len(suffix)]
+    try:
+        if str(uuid.UUID(identifier)) != identifier.lower():
+            raise ValueError
+    except ValueError:
+        return "File không hợp lệ.", 400
+
+    return send_from_directory("temp", filename, as_attachment=True)
 
 @app.route("/dataset")
 def dataset():
@@ -434,28 +592,93 @@ def evaluate():
         result=result
     )
 
+
+@app.route("/compare", methods=["GET", "POST"])
+def compare():
+    comparison = None
+    best_model = None
+    error = None
+    chart_labels = []
+    chart_accuracy = []
+    chart_precision = []
+    chart_recall = []
+    chart_f1 = []
+
+    if request.method == "POST":
+        try:
+            comparison = compare_models()
+            results = comparison["results"]
+
+            if results:
+                best_model = results[0]
+                chart_labels = [item["short_name"] for item in results]
+                chart_accuracy = [
+                    round(item["accuracy"] * 100, 2) for item in results
+                ]
+                chart_precision = [
+                    round(item["precision"] * 100, 2) for item in results
+                ]
+                chart_recall = [
+                    round(item["recall"] * 100, 2) for item in results
+                ]
+                chart_f1 = [
+                    round(item["f1"] * 100, 2) for item in results
+                ]
+        except Exception as error_detail:
+            print("Compare models error:", error_detail)
+            error = "Không thể thực hiện so sánh thuật toán."
+
+    return render_template(
+        "compare.html",
+        comparison=comparison,
+        best_model=best_model,
+        error=error,
+        chart_labels=chart_labels,
+        chart_accuracy=chart_accuracy,
+        chart_precision=chart_precision,
+        chart_recall=chart_recall,
+        chart_f1=chart_f1
+    )
+
 @app.route("/history")
 def history():
 
-    conn = sqlite3.connect("database/database.db")
+    conn = sqlite3.connect(
+        "database/database.db"
+    )
 
     conn.row_factory = sqlite3.Row
 
-    cursor = conn.cursor()
-
-    cursor.execute("""
+    predictions = conn.execute(
+        """
         SELECT *
         FROM predictions
         ORDER BY id DESC
-    """)
-
-    predictions = cursor.fetchall()
+        """
+    ).fetchall()
 
     conn.close()
 
+    total_predictions = len(predictions)
+
+    spam_predictions = sum(
+        1
+        for item in predictions
+        if item["prediction"].lower() == "spam"
+    )
+
+    ham_predictions = sum(
+        1
+        for item in predictions
+        if item["prediction"].lower() == "ham"
+    )
+
     return render_template(
         "history.html",
-        predictions=predictions
+        predictions=predictions,
+        total_predictions=total_predictions,
+        spam_predictions=spam_predictions,
+        ham_predictions=ham_predictions
     )
 
 @app.route(
@@ -518,7 +741,49 @@ def delete_all_history():
 @app.route("/algorithm")
 def algorithm():
 
-    return render_template("algorithm.html")
+    total = 0
+    spam_count = 0
+    ham_count = 0
+
+    try:
+
+        df = pd.read_csv(
+            "dataset/spam_dataset.csv"
+        )
+
+        df = df.dropna(
+            subset=["label", "text"]
+        )
+
+        df["label"] = (
+            df["label"]
+            .astype(str)
+            .str.lower()
+            .str.strip()
+        )
+
+        total = len(df)
+        spam_count = len(
+            df[df["label"] == "spam"]
+        )
+        ham_count = len(
+            df[df["label"] == "ham"]
+        )
+
+    except (OSError, KeyError, ValueError) as error:
+
+        print(
+            "Algorithm dataset error:",
+            error
+        )
+
+    return render_template(
+        "algorithm.html",
+        total=total,
+        spam_count=spam_count,
+        ham_count=ham_count,
+        model_info=get_model_info()
+    )
 
 @app.route("/dataset/add", methods=["POST"])
 def add_dataset():

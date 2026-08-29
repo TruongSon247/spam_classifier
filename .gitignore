@@ -1,0 +1,15 @@
+venv/
+.venv/
+
+__pycache__/
+*.pyc
+*.pyo
+
+.vscode/
+.idea/
+
+temp/*
+!temp/.gitkeep
+
+.tmp_*/
+spam_classifier_submission.zip

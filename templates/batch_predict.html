@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+
+{% block title %}Phân loại hàng loạt - AI Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="batch-page-header">
+    <div class="page-title mb-0">
+        <h2>Phân loại hàng loạt</h2>
+        <p>Upload CSV để phân loại nhiều Email tiếng Việt và tiếng Anh cùng lúc.</p>
+    </div>
+    <a href="{{ url_for('predict') }}" class="btn btn-outline-primary">
+        <i class="bi bi-envelope me-1"></i> Phân loại một Email
+    </a>
+</div>
+
+{% if not model_status.trained %}
+<div class="alert alert-danger custom-alert mt-4" role="alert">
+    <i class="bi bi-exclamation-circle-fill me-2"></i>
+    <strong>Mô hình chưa được huấn luyện.</strong>
+    Hãy huấn luyện trước khi sử dụng phân loại hàng loạt.
+</div>
+{% elif model_status.outdated %}
+<div class="alert alert-warning custom-alert mt-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>Model cần được huấn luyện lại.</strong>
+    Dataset hoặc cấu hình AI đã thay đổi.
+</div>
+{% endif %}
+
+{% if error %}
+<div class="alert alert-danger custom-alert mt-4" role="alert">
+    <i class="bi bi-x-circle-fill me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+<div class="row g-4 mt-1 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-body p-4">
+                <div class="dashboard-card-title">
+                    <div><h4>Upload Email CSV</h4><p>Tối đa 500 Email mỗi lần</p></div>
+                    <i class="bi bi-cloud-arrow-up"></i>
+                </div>
+                <form method="POST" enctype="multipart/form-data" id="batchForm">
+                    <div class="batch-upload-zone">
+                        <div class="batch-upload-icon"><i class="bi bi-filetype-csv"></i></div>
+                        <h5>Chọn file CSV</h5>
+                        <p>File phải có cột <strong>text</strong>. Cột <strong>subject</strong> là tùy chọn.</p>
+                        <label for="batchFile" class="visually-hidden">File Email CSV</label>
+                        <input
+                            type="file"
+                            name="file"
+                            id="batchFile"
+                            class="form-control"
+                            accept=".csv,text/csv"
+                            required
+                        >
+                    </div>
+                    <button
+                        type="submit"
+                        class="btn btn-primary w-100 mt-3"
+                        id="batchButton"
+                        {% if not model_status.trained %}disabled{% endif %}
+                    >
+                        <i class="bi bi-stars me-1"></i> Phân loại hàng loạt
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-body p-4">
+                <div class="dashboard-card-title">
+                    <div><h4>Định dạng CSV</h4><p>Cấu trúc file đầu vào</p></div>
+                    <i class="bi bi-file-earmark-code"></i>
+                </div>
+                <div class="batch-format">
+                    <span>Cách 1: chỉ nội dung</span>
+                    <pre>text
+"Congratulations! You won a prize."
+"Chiều mai lớp mình học nhé."</pre>
+                    <span>Cách 2: có tiêu đề</span>
+                    <pre>subject,text
+"Winner","Claim your free prize now."
+"Lịch học","Ngày mai lớp học lúc 8 giờ."</pre>
+                </div>
+                <div class="batch-note">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Kết quả batch không được lưu vào Lịch sử dự đoán.</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if results %}
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="batch-stat-card">
+            <div class="batch-stat-icon blue"><i class="bi bi-envelope"></i></div>
+            <div><span>Tổng Email</span><h3>{{ total }}</h3></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="batch-stat-card">
+            <div class="batch-stat-icon red"><i class="bi bi-shield-exclamation"></i></div>
+            <div><span>SPAM</span><h3 class="text-danger">{{ spam_count }}</h3></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="batch-stat-card">
+            <div class="batch-stat-icon green"><i class="bi bi-shield-check"></i></div>
+            <div><span>HAM</span><h3 class="text-success">{{ ham_count }}</h3></div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-0">
+        <div class="batch-result-header">
+            <div><h4>Kết quả phân loại</h4><p>{{ total }} Email đã được xử lý.</p></div>
+            {% if download_file %}
+            <a
+                href="{{ url_for('download_batch_result', filename=download_file) }}"
+                class="btn btn-success"
+            >
+                <i class="bi bi-download me-1"></i> Tải kết quả CSV
+            </a>
+            {% endif %}
+        </div>
+        <div class="table-responsive">
+            <table class="table batch-table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Email</th>
+                        <th>Kết quả</th>
+                        <th>SPAM</th>
+                        <th>HAM</th>
+                        <th>Confidence</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in results %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <div class="batch-email">
+                                {% if item.subject %}<strong>{{ item.subject }}</strong>{% endif %}
+                                <span>{{ item.text }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if item.prediction|lower == "spam" %}
+                            <span class="batch-result-label spam"><i class="bi bi-exclamation-triangle-fill"></i> SPAM</span>
+                            {% else %}
+                            <span class="batch-result-label ham"><i class="bi bi-check-circle-fill"></i> HAM</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-danger fw-semibold">{{ "%.2f"|format(item.spam_probability) }}%</td>
+                        <td class="text-success fw-semibold">{{ "%.2f"|format(item.ham_probability) }}%</td>
+                        <td><strong>{{ "%.2f"|format(item.confidence) }}%</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("batchForm");
+    const button = document.getElementById("batchButton");
+
+    if (form && button && !button.disabled) {
+        form.addEventListener("submit", function () {
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang phân loại...';
+        });
+    }
+});
+</script>
+{% endblock %}

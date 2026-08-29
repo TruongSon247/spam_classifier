@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}So sánh thuật toán - AI Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="page-title">
+    <h2>So sánh thuật toán</h2>
+    <p>Thực nghiệm Naive Bayes, Logistic Regression và Linear SVM trên cùng Dataset.</p>
+</div>
+
+<div class="compare-notice mb-4">
+    <div class="compare-notice-icon"><i class="bi bi-info-circle"></i></div>
+    <div>
+        <strong>Naive Bayes vẫn là mô hình chính</strong>
+        <p>Logistic Regression và Linear SVM chỉ được huấn luyện tạm trong RAM để so sánh. Chức năng phân loại Email vẫn sử dụng Multinomial Naive Bayes.</p>
+    </div>
+</div>
+
+{% if error %}
+<div class="alert alert-danger custom-alert" role="alert">
+    <i class="bi bi-x-circle-fill me-2"></i>{{ error }}
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title">
+            <div><h4>Thiết lập thực nghiệm</h4><p>Cùng điều kiện cho cả ba thuật toán</p></div>
+            <i class="bi bi-bezier2"></i>
+        </div>
+        <div class="compare-pipeline" aria-label="Quy trình so sánh mô hình">
+            <div class="compare-step"><i class="bi bi-database"></i><strong>Dataset</strong><span>SPAM + HAM</span></div>
+            <i class="bi bi-arrow-right compare-arrow"></i>
+            <div class="compare-step"><i class="bi bi-funnel"></i><strong>Preprocessing</strong><span>Unicode NFC</span></div>
+            <i class="bi bi-arrow-right compare-arrow"></i>
+            <div class="compare-step"><i class="bi bi-grid"></i><strong>TF-IDF</strong><span>Unigram + Bigram</span></div>
+            <i class="bi bi-arrow-right compare-arrow"></i>
+            <div class="compare-model-group"><span>Naive Bayes</span><span>Logistic Regression</span><span>Linear SVM</span></div>
+        </div>
+        <div class="compare-settings">
+            <span>Training: <strong>80%</strong></span>
+            <span>Testing: <strong>20%</strong></span>
+            <span>Random State: <strong>42</strong></span>
+            <span>N-Gram: <strong>(1, 2)</strong></span>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <div class="compare-run-panel">
+            <div class="compare-run-icon"><i class="bi bi-bar-chart-line"></i></div>
+            <div>
+                <h4>Chạy thực nghiệm</h4>
+                <p>Ba thuật toán sẽ học cùng tập Training và được đánh giá trên cùng tập Testing.</p>
+            </div>
+            <form method="POST" id="compareForm">
+                <button type="submit" class="btn btn-primary" id="compareButton">
+                    <i class="bi bi-play-fill me-1"></i> Bắt đầu so sánh
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if comparison %}
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="compare-stat"><span>Dữ liệu hợp lệ</span><strong>{{ comparison.total }}</strong><small>Email sau làm sạch</small></div></div>
+    <div class="col-md-3"><div class="compare-stat"><span>Training</span><strong>{{ comparison.train_size }}</strong><small>80%</small></div></div>
+    <div class="col-md-3"><div class="compare-stat"><span>Testing</span><strong>{{ comparison.test_size }}</strong><small>20%</small></div></div>
+    <div class="col-md-3"><div class="compare-stat"><span>Vocabulary</span><strong>{{ comparison.vocabulary_size }}</strong><small>TF-IDF features</small></div></div>
+</div>
+
+{% if best_model %}
+<div class="best-model-card mb-4">
+    <div class="best-model-icon"><i class="bi bi-trophy-fill"></i></div>
+    <div>
+        <span>F1-SCORE CAO NHẤT TRONG THỰC NGHIỆM</span>
+        <h3>{{ best_model.name }}</h3>
+        <p>F1-score: <strong>{{ "%.2f"|format(best_model.f1 * 100) }}%</strong></p>
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-body p-0">
+        <div class="compare-table-header"><h4>Kết quả thực nghiệm</h4><p>Xếp hạng theo F1-score của lớp SPAM</p></div>
+        <div class="table-responsive">
+            <table class="table compare-table align-middle mb-0">
+                <thead>
+                    <tr><th>Hạng</th><th>Thuật toán</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1-score</th><th>Train Time</th></tr>
+                </thead>
+                <tbody>
+                    {% for item in comparison.results %}
+                    <tr>
+                        <td><span class="compare-rank {% if loop.first %}first{% endif %}">{{ loop.index }}</span></td>
+                        <td>
+                            <div class="compare-model-name">
+                                <div class="compare-model-icon {{ item.key }}">
+                                    {% if item.key == "nb" %}<i class="bi bi-cpu"></i>{% elif item.key == "lr" %}<i class="bi bi-graph-up"></i>{% else %}<i class="bi bi-lightning"></i>{% endif %}
+                                </div>
+                                <div><strong>{{ item.name }}</strong>{% if item.key == "nb" %}<span>Model chính</span>{% endif %}</div>
+                            </div>
+                        </td>
+                        <td>{{ "%.2f"|format(item.accuracy * 100) }}%</td>
+                        <td>{{ "%.2f"|format(item.precision * 100) }}%</td>
+                        <td>{{ "%.2f"|format(item.recall * 100) }}%</td>
+                        <td><strong class="text-primary">{{ "%.2f"|format(item.f1 * 100) }}%</strong></td>
+                        <td>{{ "%.4f"|format(item.training_time) }} s</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title"><div><h4>Biểu đồ so sánh</h4><p>Accuracy, Precision, Recall và F1-score</p></div><i class="bi bi-bar-chart"></i></div>
+        <div class="compare-chart-wrapper"><canvas id="compareChart" aria-label="Biểu đồ so sánh chỉ số của ba thuật toán" role="img"></canvas></div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title"><div><h4>Nhận xét thực nghiệm</h4><p>Vai trò của từng thuật toán</p></div><i class="bi bi-lightbulb"></i></div>
+        <div class="compare-conclusion">
+            <div><strong>Multinomial Naive Bayes</strong><p>Mô hình chính của đề tài, huấn luyện nhanh và phù hợp với đặc trưng văn bản.</p></div>
+            <div><strong>Logistic Regression</strong><p>Mô hình tuyến tính mạnh cho phân loại văn bản, được dùng làm thuật toán đối chứng.</p></div>
+            <div><strong>Linear SVM</strong><p>Phù hợp với dữ liệu có nhiều đặc trưng và giúp đối chiếu chất lượng phân loại.</p></div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if comparison %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const compareCanvas = document.getElementById("compareChart");
+if (compareCanvas) {
+    new Chart(compareCanvas, {
+        type: "bar",
+        data: {
+            labels: {{ chart_labels | tojson }},
+            datasets: [
+                { label: "Accuracy", data: {{ chart_accuracy | tojson }}, backgroundColor: "#2563eb" },
+                { label: "Precision", data: {{ chart_precision | tojson }}, backgroundColor: "#16a34a" },
+                { label: "Recall", data: {{ chart_recall | tojson }}, backgroundColor: "#f59e0b" },
+                { label: "F1-score", data: {{ chart_f1 | tojson }}, backgroundColor: "#7c3aed" }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, max: 100 } },
+            plugins: { legend: { position: "bottom" } }
+        }
+    });
+}
+</script>
+{% endif %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("compareForm");
+    const button = document.getElementById("compareButton");
+    if (form && button) {
+        form.addEventListener("submit", function () {
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang thực nghiệm...';
+        });
+    }
+});
+</script>
+{% endblock %}

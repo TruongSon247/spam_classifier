@@ -1,201 +1,111 @@
 {% extends "base.html" %}
 
+{% block title %}Lịch sử - AI Spam Classifier{% endblock %}
+
 {% block content %}
-
-<div class="d-flex justify-content-between align-items-center mb-4">
-
-    <div>
-
+<div class="history-page-header">
+    <div class="page-title mb-0">
         <h2>Lịch sử dự đoán</h2>
-
-        <p class="text-muted mb-0">
-            Danh sách các email đã được phân loại bởi mô hình Naïve Bayes.
-        </p>
-
+        <p>Theo dõi các Email đã được mô hình Naive Bayes phân loại.</p>
     </div>
-
-
-    {% if predictions %}
-
-    <form
-        method="POST"
-        action="{{ url_for('delete_all_history') }}"
-        onsubmit="return confirm('Bạn có chắc muốn xóa toàn bộ lịch sử không?')"
-    >
-
-        <button
-            type="submit"
-            class="btn btn-danger"
-        >
-
-            <i class="bi bi-trash"></i>
-
-            Xóa tất cả
-
-        </button>
-
+    {% if total_predictions > 0 %}
+    <form method="POST" action="{{ url_for('delete_all_history') }}" class="history-delete-all-form">
+        <button type="submit" class="btn btn-outline-danger"><i class="bi bi-trash3 me-1"></i> Xóa toàn bộ</button>
     </form>
-
     {% endif %}
-
 </div>
 
-
-<div class="card shadow-sm">
-
-    <div class="card-body">
-
-        <div class="table-responsive">
-
-            <table class="table table-hover align-middle">
-
-                <thead>
-
-                    <tr>
-                        <th>ID</th>
-                        <th>Tiêu đề</th>
-                        <th>Nội dung</th>
-                        <th>Kết quả</th>
-                        <th>SPAM</th>
-                        <th>HAM</th>
-                        <th>Thời gian</th>
-                    </tr>
-
-                </thead>
-
-
-                <tbody>
-
-                    {% for item in predictions %}
-
-                    <tr>
-
-                        <td>
-                            {{ item["id"] }}
-                        </td>
-
-
-                        <td>
-
-                            {% if item["subject"] %}
-
-                                {{ item["subject"] }}
-
-                            {% else %}
-
-                                <span class="text-muted">
-                                    Không có tiêu đề
-                                </span>
-
-                            {% endif %}
-
-                        </td>
-
-
-                        <td style="max-width: 350px;">
-
-                            {{ item["message"][:100] }}
-
-                            {% if item["message"]|length > 100 %}
-                                ...
-                            {% endif %}
-
-                        </td>
-
-
-                        <td>
-
-                            {% if item["prediction"] == "spam" %}
-
-                                <span class="badge bg-danger">
-                                    SPAM
-                                </span>
-
-                            {% else %}
-
-                                <span class="badge bg-success">
-                                    HAM
-                                </span>
-
-                            {% endif %}
-
-                        </td>
-
-
-                        <td>
-
-                            {{ "%.2f"|format(
-                                item["spam_probability"] * 100
-                            ) }}%
-
-                        </td>
-
-
-                        <td>
-
-                            {{ "%.2f"|format(
-                                item["ham_probability"] * 100
-                            ) }}%
-
-                        </td>
-
-
-                        <td>
-                            {{ item["created_at"] }}
-                        </td>
-
-                        <td>
-
-    <form
-        method="POST"
-        action="{{ url_for(
-            'delete_history',
-            id=item['id']
-        ) }}"
-        onsubmit="return confirm('Bạn có chắc muốn xóa lịch sử này không?')"
-    >
-
-        <button
-            type="submit"
-            class="btn btn-sm btn-outline-danger"
-        >
-
-            <i class="bi bi-trash"></i>
-
-            Xóa
-
-        </button>
-
-    </form>
-
-</td>
-
-                    </tr>
-
-
-                    {% else %}
-
-                    <tr>
-
-                        <td
-                            colspan="8"
-                            class="text-center text-muted py-5"
-                        >
-                            Chưa có lịch sử dự đoán.
-                        </td>
-
-                    </tr>
-
-                    {% endfor %}
-
-                </tbody>
-
-            </table>
-
+<div class="row g-3 mt-1 mb-4">
+    <div class="col-md-4">
+        <div class="history-stat-card">
+            <div class="history-stat-icon blue"><i class="bi bi-clock-history"></i></div>
+            <div><span>Tổng dự đoán</span><h3>{{ total_predictions }}</h3><small>Lượt phân loại</small></div>
         </div>
-
     </div>
-
+    <div class="col-md-4">
+        <div class="history-stat-card">
+            <div class="history-stat-icon red"><i class="bi bi-shield-exclamation"></i></div>
+            <div><span>SPAM</span><h3 class="text-danger">{{ spam_predictions }}</h3><small>Email được phát hiện</small></div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="history-stat-card">
+            <div class="history-stat-icon green"><i class="bi bi-shield-check"></i></div>
+            <div><span>HAM</span><h3 class="text-success">{{ ham_predictions }}</h3><small>Email bình thường</small></div>
+        </div>
+    </div>
 </div>
 
+<div class="card history-table-card">
+    <div class="card-body p-0">
+        <div class="history-table-header">
+            <div><h4>Danh sách dự đoán</h4><p>Các kết quả được lưu tự động sau mỗi lần phân loại Email.</p></div>
+            <span class="history-count-badge">{{ total_predictions }} kết quả</span>
+        </div>
+        {% if predictions %}
+        <div class="table-responsive">
+            <table class="table history-table align-middle mb-0">
+                <thead><tr><th>ID</th><th>Email</th><th>Kết quả</th><th>Xác suất</th><th>Thời gian</th><th class="text-center">Thao tác</th></tr></thead>
+                <tbody>
+                    {% for item in predictions %}
+                    <tr>
+                        <td><span class="history-id">#{{ item["id"] }}</span></td>
+                        <td>
+                            <div class="history-email">
+                                <strong>{% if item["subject"] %}{{ item["subject"] }}{% else %}Không có tiêu đề{% endif %}</strong>
+                                <span>{{ item["message"] }}</span>
+                            </div>
+                        </td>
+                        <td>
+                            {% if item["prediction"]|lower == "spam" %}
+                            <span class="history-result spam"><i class="bi bi-exclamation-triangle-fill"></i> SPAM</span>
+                            {% else %}
+                            <span class="history-result ham"><i class="bi bi-check-circle-fill"></i> HAM</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="history-probability">
+                                <div><span class="spam-text">SPAM</span><strong>{{ "%.2f"|format(item["spam_probability"] * 100) }}%</strong></div>
+                                <div><span class="ham-text">HAM</span><strong>{{ "%.2f"|format(item["ham_probability"] * 100) }}%</strong></div>
+                            </div>
+                        </td>
+                        <td><div class="history-date"><i class="bi bi-calendar3"></i>{{ item["created_at"] }}</div></td>
+                        <td class="text-center">
+                            <form method="POST" action="{{ url_for('delete_history', id=item['id']) }}" class="history-delete-form">
+                                <button type="submit" class="btn btn-sm btn-outline-danger history-delete-button" title="Xóa" aria-label="Xóa lịch sử #{{ item['id'] }}"><i class="bi bi-trash"></i></button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="history-empty">
+            <div class="history-empty-icon"><i class="bi bi-clock-history"></i></div>
+            <h4>Chưa có lịch sử dự đoán</h4>
+            <p>Hãy phân loại một Email để kết quả xuất hiện tại đây.</p>
+            <a href="{{ url_for('predict') }}" class="btn btn-primary"><i class="bi bi-envelope-check me-1"></i> Phân loại Email</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.querySelectorAll(".history-delete-form").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+        if (!window.confirm("Bạn có chắc muốn xóa lịch sử này?")) {
+            event.preventDefault();
+        }
+    });
+});
+
+document.querySelector(".history-delete-all-form")?.addEventListener("submit", function (event) {
+    if (!window.confirm("Bạn có chắc muốn xóa toàn bộ lịch sử dự đoán?")) {
+        event.preventDefault();
+    }
+});
+</script>
 {% endblock %}

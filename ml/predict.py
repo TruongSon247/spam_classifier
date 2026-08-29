@@ -73,3 +73,35 @@ def predict_email(text):
         "confidence": max(spam_probability, ham_probability),
         "important_words": important_words
     }
+
+
+def predict_batch_emails(texts):
+    if (
+        not os.path.exists(MODEL_PATH)
+        or not os.path.exists(VECTORIZER_PATH)
+    ):
+        return None
+
+    model = joblib.load(MODEL_PATH)
+    vectorizer = joblib.load(VECTORIZER_PATH)
+    cleaned_texts = [clean_text(text) for text in texts]
+    vectors = vectorizer.transform(cleaned_texts)
+    predictions = model.predict(vectors)
+    probabilities = model.predict_proba(vectors)
+
+    classes = list(model.classes_)
+    spam_index = classes.index("spam")
+    ham_index = classes.index("ham")
+    results = []
+
+    for index, prediction in enumerate(predictions):
+        spam_probability = float(probabilities[index][spam_index])
+        ham_probability = float(probabilities[index][ham_index])
+        results.append({
+            "prediction": str(prediction),
+            "spam_probability": spam_probability,
+            "ham_probability": ham_probability,
+            "confidence": max(spam_probability, ham_probability)
+        })
+
+    return results

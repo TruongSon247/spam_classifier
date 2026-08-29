@@ -44,7 +44,11 @@ def train_model():
     )
 
     # Vector hóa văn bản
-    vectorizer = TfidfVectorizer()
+    vectorizer = TfidfVectorizer(
+        ngram_range=(1, 2),
+        min_df=1,
+        sublinear_tf=True
+    )
 
     X_train_vector = vectorizer.fit_transform(X_train)
     X_test_vector = vectorizer.transform(X_test)
@@ -73,6 +77,8 @@ def train_model():
     model_info = {
         "model_name": "Multinomial Naive Bayes",
         "vectorizer": "TF-IDF",
+        "ngram_range": [1, 2],
+        "unicode_support": True,
         "alpha": 1.0,
         "total": len(df),
         "train_size": len(X_train),

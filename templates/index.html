@@ -1,663 +1,261 @@
 {% extends "base.html" %}
 
+{% block title %}Dashboard - AI Spam Classifier{% endblock %}
+
 {% block content %}
-
-<div class="mb-4">
-
+<div class="page-title">
     <h2>Dashboard</h2>
-
-    <p class="text-muted">
-        Tổng quan hệ thống phân loại thư rác bằng Naïve Bayes.
-    </p>
-
+    <p>Tổng quan hệ thống phân loại thư rác sử dụng TF-IDF và Multinomial Naive Bayes.</p>
 </div>
 
 {% if not model_status.trained %}
-
-<div class="alert alert-warning" role="alert">
-    <i class="bi bi-exclamation-triangle me-1"></i>
+<div class="alert alert-warning custom-alert" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
     <strong>Mô hình chưa được huấn luyện.</strong>
-    Vui lòng vào trang
-    <a href="{{ url_for('train') }}" class="alert-link">
-        Huấn luyện
-    </a>
-    để tạo mô hình.
+    Vui lòng huấn luyện mô hình trước khi thực hiện phân loại.
+    <a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện ngay</a>
 </div>
-
 {% elif model_status.outdated %}
-
-<div class="alert alert-warning" role="alert">
-    <i class="bi bi-exclamation-triangle me-1"></i>
-    <strong>Model cần được cập nhật.</strong>
-    {{ model_status.message }}
-    <a
-        href="{{ url_for('train') }}"
-        class="btn btn-sm btn-warning ms-2"
-    >
-        Huấn luyện lại
-    </a>
+<div class="alert alert-warning custom-alert" role="alert">
+    <i class="bi bi-arrow-repeat me-2"></i>
+    <strong>Dataset đã thay đổi.</strong>
+    Bạn nên huấn luyện lại mô hình để cập nhật dữ liệu mới.
+    <a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện lại</a>
 </div>
-
-{% else %}
-
-<div class="alert alert-success" role="alert">
-    <i class="bi bi-check-circle me-1"></i>
-    {{ model_status.message }}
-</div>
-
 {% endif %}
 
-
-<!-- =========================
-     THỐNG KÊ CHÍNH
-========================= -->
+<div class="row g-4 mb-4 dashboard-primary-stats">
+    <div class="col-xl-3 col-md-6">
+        <div class="dashboard-stat-card">
+            <div class="stat-content">
+                <span class="stat-label">Tổng Email</span>
+                <h2>{{ total }}</h2>
+                <span class="stat-description">Dữ liệu huấn luyện</span>
+            </div>
+            <div class="stat-icon stat-blue"><i class="bi bi-envelope"></i></div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="dashboard-stat-card">
+            <div class="stat-content">
+                <span class="stat-label">SPAM</span>
+                <h2 class="text-danger">{{ spam_count }}</h2>
+                <span class="stat-description">Thư rác</span>
+            </div>
+            <div class="stat-icon stat-red"><i class="bi bi-exclamation-triangle"></i></div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="dashboard-stat-card">
+            <div class="stat-content">
+                <span class="stat-label">HAM</span>
+                <h2 class="text-success">{{ ham_count }}</h2>
+                <span class="stat-description">Thư bình thường</span>
+            </div>
+            <div class="stat-icon stat-green"><i class="bi bi-check-circle"></i></div>
+        </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+        <div class="dashboard-stat-card">
+            <div class="stat-content">
+                <span class="stat-label">Accuracy</span>
+                <h2 class="text-primary">{{ "%.2f"|format(accuracy) }}%</h2>
+                <span class="stat-description">Độ chính xác</span>
+            </div>
+            <div class="stat-icon stat-purple"><i class="bi bi-graph-up-arrow"></i></div>
+        </div>
+    </div>
+</div>
 
 <div class="row g-4 mb-4">
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
+    <div class="col-lg-5">
+        <div class="card h-100">
             <div class="card-body p-4">
-
-                <div class="d-flex justify-content-between">
-
-                    <div>
-
-                        <span class="text-muted">
-                            Tổng Email
-                        </span>
-
-                        <h2 class="mt-2">
-                            {{ total }}
-                        </h2>
-
-                    </div>
-
-                    <div>
-
-                        <i
-                            class="bi bi-envelope fs-2 text-primary"
-                        ></i>
-
-                    </div>
-
+                <div class="dashboard-card-title">
+                    <div><h4>Phân bố Dataset</h4><p>Tỷ lệ SPAM và HAM</p></div>
+                    <i class="bi bi-pie-chart"></i>
                 </div>
-
+                <div class="chart-wrapper">
+                    <canvas id="spamHamChart" data-spam-count="{{ spam_count }}" data-ham-count="{{ ham_count }}"></canvas>
+                </div>
+                <div class="chart-legend-custom" aria-label="Chú thích biểu đồ">
+                    <div><span class="legend-dot spam"></span>SPAM <strong>{{ spam_count }}</strong></div>
+                    <div><span class="legend-dot ham"></span>HAM <strong>{{ ham_count }}</strong></div>
+                </div>
             </div>
-
         </div>
-
     </div>
 
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
+    <div class="col-lg-7">
+        <div class="card h-100">
             <div class="card-body p-4">
-
-                <div class="d-flex justify-content-between">
-
-                    <div>
-
-                        <span class="text-muted">
-                            SPAM
-                        </span>
-
-                        <h2 class="mt-2 text-danger">
-                            {{ spam_count }}
-                        </h2>
-
-                    </div>
-
-                    <div>
-
-                        <i
-                            class="bi bi-exclamation-triangle fs-2 text-danger"
-                        ></i>
-
-                    </div>
-
+                <div class="dashboard-card-title">
+                    <div><h4>Hiệu suất mô hình</h4><p>Các chỉ số đánh giá trên tập kiểm thử</p></div>
+                    <i class="bi bi-speedometer2"></i>
                 </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <div class="d-flex justify-content-between">
-
-                    <div>
-
-                        <span class="text-muted">
-                            HAM
-                        </span>
-
-                        <h2 class="mt-2 text-success">
-                            {{ ham_count }}
-                        </h2>
-
+                {% set metrics = [
+                    ('Accuracy', accuracy, ''),
+                    ('Precision', precision, 'bg-success'),
+                    ('Recall', recall, 'bg-warning'),
+                    ('F1-score', f1, 'bg-info')
+                ] %}
+                {% for label, value, color_class in metrics %}
+                <div class="metric-item{% if loop.last %} mb-0{% endif %}">
+                    <div class="metric-header"><span>{{ label }}</span><strong>{{ "%.2f"|format(value) }}%</strong></div>
+                    <div class="progress" role="progressbar" aria-label="{{ label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ value }}">
+                        <div class="progress-bar {{ color_class }}" data-progress="{{ value }}"></div>
                     </div>
-
-                    <div>
-
-                        <i
-                            class="bi bi-check-circle fs-2 text-success"
-                        ></i>
-
-                    </div>
-
                 </div>
-
+                {% endfor %}
             </div>
-
         </div>
-
     </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <div class="d-flex justify-content-between">
-
-                    <div>
-
-                        <span class="text-muted">
-                            Accuracy
-                        </span>
-
-                        <h2 class="mt-2 text-info">
-                            {{ accuracy }}%
-                        </h2>
-
-                    </div>
-
-                    <div>
-
-                        <i
-                            class="bi bi-graph-up fs-2 text-info"
-                        ></i>
-
-                    </div>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
 </div>
-
-<!-- =========================
-     THỐNG KÊ DỰ ĐOÁN
-========================= -->
 
 <div class="row g-4 mb-4">
-
     <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted">Tổng lượt dự đoán</span>
-                        <h2 class="mt-2">{{ total_predictions }}</h2>
-                    </div>
-                    <i class="bi bi-envelope-check fs-2 text-primary"></i>
-                </div>
-            </div>
+        <div class="prediction-stat">
+            <div class="prediction-stat-icon blue"><i class="bi bi-envelope-check"></i></div>
+            <div><span>Tổng lượt dự đoán</span><h3>{{ total_predictions }}</h3></div>
         </div>
     </div>
-
     <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted">Dự đoán SPAM</span>
-                        <h2 class="mt-2 text-danger">{{ spam_predictions }}</h2>
-                    </div>
-                    <i class="bi bi-exclamation-triangle fs-2 text-danger"></i>
-                </div>
-            </div>
+        <div class="prediction-stat">
+            <div class="prediction-stat-icon red"><i class="bi bi-shield-exclamation"></i></div>
+            <div><span>Dự đoán SPAM</span><h3 class="text-danger">{{ spam_predictions }}</h3></div>
         </div>
     </div>
-
     <div class="col-md-4">
-        <div class="card shadow-sm h-100">
-            <div class="card-body p-4">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <span class="text-muted">Dự đoán HAM</span>
-                        <h2 class="mt-2 text-success">{{ ham_predictions }}</h2>
-                    </div>
-                    <i class="bi bi-check-circle fs-2 text-success"></i>
-                </div>
-            </div>
+        <div class="prediction-stat">
+            <div class="prediction-stat-icon green"><i class="bi bi-shield-check"></i></div>
+            <div><span>Dự đoán HAM</span><h3 class="text-success">{{ ham_predictions }}</h3></div>
         </div>
     </div>
-
 </div>
-
-
-<!-- =========================
-     CHỈ SỐ ĐÁNH GIÁ
-========================= -->
 
 <div class="row g-4 mb-4">
-
-    <div class="col-md-4">
-
-        <div class="card shadow-sm h-100">
-
+    <div class="col-lg-5">
+        <div class="card h-100">
             <div class="card-body p-4">
-
-                <span class="text-muted">
-                    Precision
-                </span>
-
-                <h3 class="mt-2 text-success">
-                    {{ precision }}%
-                </h3>
-
-                <div class="progress mt-3">
-
-                    <div
-                        class="progress-bar bg-success"
-                        data-progress="{{ precision }}"
-                    >
-                    </div>
-
+                <div class="dashboard-card-title">
+                    <div><h4>Confusion Matrix</h4><p>Kết quả trên tập kiểm thử</p></div>
+                    <i class="bi bi-grid-3x3-gap"></i>
                 </div>
-
+                <div class="table-responsive">
+                    <table class="table table-bordered text-center confusion-table">
+                        <thead><tr><th></th><th>Dự đoán HAM</th><th>Dự đoán SPAM</th></tr></thead>
+                        <tbody>
+                            <tr>
+                                <th>HAM</th>
+                                <td class="matrix-correct"><strong>{{ tn }}</strong><small>Đúng</small></td>
+                                <td class="matrix-wrong"><strong>{{ fp }}</strong><small>Sai</small></td>
+                            </tr>
+                            <tr>
+                                <th>SPAM</th>
+                                <td class="matrix-wrong"><strong>{{ fn }}</strong><small>Sai</small></td>
+                                <td class="matrix-correct"><strong>{{ tp }}</strong><small>Đúng</small></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
-
         </div>
-
     </div>
 
-
-    <div class="col-md-4">
-
-        <div class="card shadow-sm h-100">
-
+    <div class="col-lg-7">
+        <div class="card h-100">
             <div class="card-body p-4">
-
-                <span class="text-muted">
-                    Recall
-                </span>
-
-                <h3 class="mt-2 text-warning">
-                    {{ recall }}%
-                </h3>
-
-                <div class="progress mt-3">
-
-                    <div
-                        class="progress-bar bg-warning"
-                        data-progress="{{ recall }}"
-                    >
-                    </div>
-
+                <div class="dashboard-card-title">
+                    <div><h4>Thao tác nhanh</h4><p>Truy cập các chức năng chính</p></div>
+                    <i class="bi bi-lightning-charge"></i>
                 </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-4">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <span class="text-muted">
-                    F1-score
-                </span>
-
-                <h3 class="mt-2 text-primary">
-                    {{ f1 }}%
-                </h3>
-
-                <div class="progress mt-3">
-
-                    <div
-                        class="progress-bar bg-primary"
-                        data-progress="{{ f1 }}"
-                    >
-                    </div>
-
+                <div class="quick-actions">
+                    <a href="{{ url_for('predict') }}" class="quick-action-item">
+                        <div class="quick-action-icon blue"><i class="bi bi-envelope-check"></i></div>
+                        <div><strong>Phân loại thư</strong><span>Kiểm tra SPAM hoặc HAM</span></div>
+                        <i class="bi bi-chevron-right ms-auto"></i>
+                    </a>
+                    <a href="{{ url_for('train') }}" class="quick-action-item">
+                        <div class="quick-action-icon purple"><i class="bi bi-cpu"></i></div>
+                        <div><strong>Huấn luyện Model</strong><span>Huấn luyện lại Naive Bayes</span></div>
+                        <i class="bi bi-chevron-right ms-auto"></i>
+                    </a>
+                    <a href="{{ url_for('dataset') }}" class="quick-action-item">
+                        <div class="quick-action-icon green"><i class="bi bi-database"></i></div>
+                        <div><strong>Quản lý Dataset</strong><span>Xem và chỉnh sửa dữ liệu</span></div>
+                        <i class="bi bi-chevron-right ms-auto"></i>
+                    </a>
                 </div>
-
             </div>
-
         </div>
-
     </div>
-
 </div>
 
-<!-- =========================
-     BIỂU ĐỒ + CONFUSION MATRIX
-========================= -->
-
-<div class="row g-4">
-
-    <!-- BIỂU ĐỒ -->
-
-    <div class="col-md-6">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Tỷ lệ SPAM / HAM
-                </h4>
-
-                <div style="height: 320px;">
-
-                    <canvas
-                        id="spamHamChart"
-                        data-spam-count="{{ spam_count }}"
-                        data-ham-count="{{ ham_count }}"
-                    ></canvas>
-
-                </div>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- CONFUSION MATRIX -->
-
-    <div class="col-md-6">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Confusion Matrix
-                </h4>
-
-                <table
-                    class="table table-bordered text-center align-middle"
-                >
-
-                    <thead>
-
-                        <tr>
-
-                            <th rowspan="2">
-                                Thực tế
-                            </th>
-
-                            <th colspan="2">
-                                Dự đoán
-                            </th>
-
-                        </tr>
-
-                        <tr>
-
-                            <th>
-                                HAM
-                            </th>
-
-                            <th>
-                                SPAM
-                            </th>
-
-                        </tr>
-
-                    </thead>
-
-
-                    <tbody>
-
-                        <tr>
-
-                            <th>
-                                HAM
-                            </th>
-
-                            <td>
-
-                                <h3 class="text-success">
-                                    {{ tn }}
-                                </h3>
-
-                                <small>
-                                    Đúng
-                                </small>
-
-                            </td>
-
-                            <td>
-
-                                <h3 class="text-danger">
-                                    {{ fp }}
-                                </h3>
-
-                                <small>
-                                    Sai
-                                </small>
-
-                            </td>
-
-                        </tr>
-
-
-                        <tr>
-
-                            <th>
-                                SPAM
-                            </th>
-
-                            <td>
-
-                                <h3 class="text-danger">
-                                    {{ fn }}
-                                </h3>
-
-                                <small>
-                                    Sai
-                                </small>
-
-                            </td>
-
-                            <td>
-
-                                <h3 class="text-success">
-                                    {{ tp }}
-                                </h3>
-
-                                <small>
-                                    Đúng
-                                </small>
-
-                            </td>
-
-                        </tr>
-
-                    </tbody>
-
-                </table>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-<!-- =========================
-     DỰ ĐOÁN GẦN ĐÂY
-========================= -->
-
-<div class="card shadow-sm mt-4">
-
+<div class="card dashboard-recent-card">
     <div class="card-body p-4">
-
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h4 class="mb-0">Dự đoán gần đây</h4>
-            <a
-                href="{{ url_for('history') }}"
-                class="btn btn-sm btn-outline-primary"
-            >
-                Xem toàn bộ
-            </a>
+        <div class="recent-predictions-header">
+            <div class="dashboard-card-title mb-0">
+                <div><h4>Dự đoán gần đây</h4><p>Các email được phân loại mới nhất</p></div>
+            </div>
+            <a href="{{ url_for('history') }}" class="btn btn-outline-primary btn-sm">Xem tất cả <i class="bi bi-arrow-right ms-1"></i></a>
         </div>
-
         <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Tiêu đề</th>
-                        <th>Kết quả</th>
-                        <th>SPAM</th>
-                        <th>HAM</th>
-                        <th>Thời gian</th>
-                    </tr>
-                </thead>
-
+            <table class="table align-middle mb-0">
+                <thead><tr><th>ID</th><th>Tiêu đề</th><th>Kết quả</th><th>SPAM</th><th>HAM</th><th>Thời gian</th></tr></thead>
                 <tbody>
                     {% for item in recent_predictions %}
                     <tr>
-                        <td>{{ item["id"] }}</td>
-                        <td>
-                            {% if item["subject"] %}
-                                {{ item["subject"] }}
-                            {% else %}
-                                <span class="text-muted">Không có tiêu đề</span>
-                            {% endif %}
-                        </td>
+                        <td>#{{ item["id"] }}</td>
+                        <td>{% if item["subject"] %}{{ item["subject"] }}{% else %}<span class="text-muted">Không có tiêu đề</span>{% endif %}</td>
                         <td>
                             {% if item["prediction"] == "spam" %}
-                                <span class="badge bg-danger">SPAM</span>
+                            <span class="badge bg-danger"><i class="bi bi-exclamation-triangle"></i> SPAM</span>
                             {% else %}
-                                <span class="badge bg-success">HAM</span>
+                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> HAM</span>
                             {% endif %}
                         </td>
-                        <td>
-                            {{ "%.2f"|format(item["spam_probability"] * 100) }}%
-                        </td>
-                        <td>
-                            {{ "%.2f"|format(item["ham_probability"] * 100) }}%
-                        </td>
-                        <td>{{ item["created_at"] }}</td>
+                        <td class="text-danger fw-semibold">{{ "%.2f"|format(item["spam_probability"] * 100) }}%</td>
+                        <td class="text-success fw-semibold">{{ "%.2f"|format(item["ham_probability"] * 100) }}%</td>
+                        <td class="text-muted">{{ item["created_at"] }}</td>
                     </tr>
                     {% else %}
-                    <tr>
-                        <td colspan="6" class="text-center text-muted py-4">
-                            Chưa có dự đoán nào.
-                        </td>
-                    </tr>
+                    <tr><td colspan="6" class="empty-state"><i class="bi bi-inbox"></i><p>Chưa có lịch sử dự đoán.</p></td></tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
-
     </div>
-
 </div>
+{% endblock %}
 
-
-<!-- =========================
-     CHART.JS
-========================= -->
-
+{% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
 <script>
-
-    document.querySelectorAll("[data-progress]").forEach((bar) => {
-        bar.style.width = `${bar.dataset.progress}%`;
+    document.querySelectorAll("[data-progress]").forEach(function (bar) {
+        const value = Number.parseFloat(bar.dataset.progress) || 0;
+        bar.style.width = Math.min(100, Math.max(0, value)) + "%";
     });
 
-    const chartCanvas = document.getElementById("spamHamChart");
-    const spamCount = Number(chartCanvas.dataset.spamCount);
-    const hamCount = Number(chartCanvas.dataset.hamCount);
-    const ctx = chartCanvas.getContext("2d");
-
-
-    new Chart(ctx, {
-
-        type: "doughnut",
-
-        data: {
-
-            labels: [
-                "SPAM",
-                "HAM"
-            ],
-
-            datasets: [
-
-                {
-
-                    data: [
-                        spamCount,
-                        hamCount
-                    ],
-
-                    backgroundColor: [
-                        "#dc3545",
-                        "#198754"
-                    ],
-
-                    borderWidth: 0
-
-                }
-
-            ]
-
-        },
-
-
-        options: {
-
-            responsive: true,
-
-            maintainAspectRatio: false,
-
-            plugins: {
-
-                legend: {
-
-                    position: "bottom"
-
-                }
-
+    const spamHamCanvas = document.getElementById("spamHamChart");
+    if (spamHamCanvas && typeof Chart !== "undefined") {
+        new Chart(spamHamCanvas, {
+            type: "doughnut",
+            data: {
+                labels: ["SPAM", "HAM"],
+                datasets: [{
+                    data: [Number(spamHamCanvas.dataset.spamCount), Number(spamHamCanvas.dataset.hamCount)],
+                    backgroundColor: ["#ef4444", "#22c55e"],
+                    borderWidth: 0,
+                    hoverOffset: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: "72%",
+                plugins: { legend: { display: false } }
             }
-
-        }
-
-    });
-
+        });
+    }
 </script>
-
 {% endblock %}

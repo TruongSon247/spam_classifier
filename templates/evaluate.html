@@ -1,350 +1,120 @@
 {% extends "base.html" %}
 
+{% block title %}Đánh giá - AI Spam Classifier{% endblock %}
+
 {% block content %}
-
-<div class="mb-4">
-
+<div class="page-title">
     <h2>Đánh giá mô hình</h2>
-
-    <p class="text-muted">
-        Các chỉ số đánh giá mô hình Multinomial Naïve Bayes
-        trên tập dữ liệu kiểm thử.
-    </p>
-
+    <p>Phân tích chất lượng mô hình Multinomial Naive Bayes trên tập Testing.</p>
 </div>
 
+{% if global_model_status.outdated %}
+<div class="alert alert-warning custom-alert" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i><strong>Dataset đã thay đổi.</strong>
+    Kết quả đánh giá có thể không phản ánh model mới nhất. Hãy huấn luyện lại trước.
+    <a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện lại</a>
+</div>
+{% endif %}
 
-<!-- CÁC CHỈ SỐ -->
+{% if result %}
+<div class="row g-4 mb-4">
+    {% set metrics = [
+        ('blue', 'bi-bullseye', 'Accuracy', result.accuracy, '', 'Tỷ lệ dự đoán đúng tổng thể'),
+        ('green', 'bi-check2-circle', 'Precision', result.precision, 'bg-success', 'Độ chính xác khi dự đoán SPAM'),
+        ('orange', 'bi-search', 'Recall', result.recall, 'bg-warning', 'Khả năng phát hiện SPAM thực tế'),
+        ('purple', 'bi-graph-up', 'F1-score', result.f1, 'bg-info', 'Cân bằng Precision và Recall')
+    ] %}
+    {% for color, icon, label, value, bar_class, description in metrics %}
+    <div class="col-xl-3 col-md-6">
+        <div class="evaluation-metric-card {{ color }}">
+            <div class="evaluation-metric-header"><div class="evaluation-metric-icon"><i class="bi {{ icon }}"></i></div><span>{{ label }}</span></div>
+            <h2>{{ "%.2f"|format(value * 100) }}%</h2>
+            <div class="progress" role="progressbar" aria-label="{{ label }}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ value * 100 }}">
+                <div class="progress-bar {{ bar_class }}" data-progress="{{ value * 100 }}"></div>
+            </div>
+            <small>{{ description }}</small>
+        </div>
+    </div>
+    {% endfor %}
+</div>
 
 <div class="row g-4 mb-4">
-
-    <!-- Accuracy -->
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
+    <div class="col-lg-7">
+        <div class="card h-100">
             <div class="card-body p-4">
-
-                <span class="text-muted">
-                    Accuracy
-                </span>
-
-                <h2 class="mt-2 text-primary">
-
-                    {{ "%.2f"|format(
-                        result.accuracy * 100
-                    ) }}%
-
-                </h2>
-
-                <small class="text-muted">
-                    Tỷ lệ dự đoán đúng
-                </small>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- Precision -->
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <span class="text-muted">
-                    Precision
-                </span>
-
-                <h2 class="mt-2 text-success">
-
-                    {{ "%.2f"|format(
-                        result.precision * 100
-                    ) }}%
-
-                </h2>
-
-                <small class="text-muted">
-                    Độ chính xác khi dự đoán SPAM
-                </small>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- Recall -->
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <span class="text-muted">
-                    Recall
-                </span>
-
-                <h2 class="mt-2 text-warning">
-
-                    {{ "%.2f"|format(
-                        result.recall * 100
-                    ) }}%
-
-                </h2>
-
-                <small class="text-muted">
-                    Khả năng phát hiện SPAM
-                </small>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <!-- F1 -->
-
-    <div class="col-md-3">
-
-        <div class="card shadow-sm h-100">
-
-            <div class="card-body p-4">
-
-                <span class="text-muted">
-                    F1-score
-                </span>
-
-                <h2 class="mt-2 text-info">
-
-                    {{ "%.2f"|format(
-                        result.f1 * 100
-                    ) }}%
-
-                </h2>
-
-                <small class="text-muted">
-                    Cân bằng Precision và Recall
-                </small>
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<!-- CONFUSION MATRIX -->
-
-<div class="row g-4">
-
-    <div class="col-md-7">
-
-        <div class="card shadow-sm">
-
-            <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Confusion Matrix
-                </h4>
-
-                <div class="table-responsive">
-
-                    <table
-                        class="table table-bordered text-center align-middle"
-                    >
-
-                        <thead>
-
-                            <tr>
-
-                                <th rowspan="2">
-                                    Thực tế
-                                </th>
-
-                                <th colspan="2">
-                                    Dự đoán
-                                </th>
-
-                            </tr>
-
-                            <tr>
-
-                                <th>
-                                    HAM
-                                </th>
-
-                                <th>
-                                    SPAM
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-
-                        <tbody>
-
-                            <tr>
-
-                                <th>
-                                    HAM
-                                </th>
-
-                                <td>
-
-                                    <h3 class="text-success">
-                                        {{ result.tn }}
-                                    </h3>
-
-                                    <small>
-                                        HAM đúng
-                                    </small>
-
-                                </td>
-
-                                <td>
-
-                                    <h3 class="text-danger">
-                                        {{ result.fp }}
-                                    </h3>
-
-                                    <small>
-                                        HAM bị nhầm thành SPAM
-                                    </small>
-
-                                </td>
-
-                            </tr>
-
-
-                            <tr>
-
-                                <th>
-                                    SPAM
-                                </th>
-
-                                <td>
-
-                                    <h3 class="text-danger">
-                                        {{ result.fn }}
-                                    </h3>
-
-                                    <small>
-                                        SPAM bị nhầm thành HAM
-                                    </small>
-
-                                </td>
-
-                                <td>
-
-                                    <h3 class="text-success">
-                                        {{ result.tp }}
-                                    </h3>
-
-                                    <small>
-                                        SPAM đúng
-                                    </small>
-
-                                </td>
-
-                            </tr>
-
-                        </tbody>
-
-                    </table>
-
+                <div class="dashboard-card-title">
+                    <div><h4>Confusion Matrix</h4><p>Phân tích các trường hợp dự đoán đúng và sai</p></div>
+                    <i class="bi bi-grid-3x3-gap"></i>
                 </div>
-
+                <div class="evaluation-matrix">
+                    <div class="matrix-axis-title">Kết quả dự đoán</div>
+                    <div class="evaluation-matrix-grid">
+                        <div class="matrix-label"></div><div class="matrix-column-label">HAM</div><div class="matrix-column-label">SPAM</div>
+                        <div class="matrix-row-label">HAM thực tế</div>
+                        <div class="matrix-box correct"><span>True Negative</span><strong>{{ result.tn }}</strong><small>HAM → HAM</small></div>
+                        <div class="matrix-box wrong"><span>False Positive</span><strong>{{ result.fp }}</strong><small>HAM → SPAM</small></div>
+                        <div class="matrix-row-label">SPAM thực tế</div>
+                        <div class="matrix-box wrong"><span>False Negative</span><strong>{{ result.fn }}</strong><small>SPAM → HAM</small></div>
+                        <div class="matrix-box correct"><span>True Positive</span><strong>{{ result.tp }}</strong><small>SPAM → SPAM</small></div>
+                    </div>
+                </div>
             </div>
-
         </div>
-
     </div>
-
-
-    <!-- GIẢI THÍCH -->
-
-    <div class="col-md-5">
-
-        <div class="card shadow-sm">
-
+    <div class="col-lg-5">
+        <div class="card h-100">
             <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Giải thích kết quả
-                </h4>
-
-                <p>
-
-                    <strong>Accuracy:</strong>
-
-                    tỷ lệ email được mô hình dự đoán
-                    chính xác trên toàn bộ tập kiểm thử.
-
-                </p>
-
-
-                <p>
-
-                    <strong>Precision:</strong>
-
-                    trong những email mà mô hình dự đoán
-                    là SPAM, có bao nhiêu email thực sự
-                    là SPAM.
-
-                </p>
-
-
-                <p>
-
-                    <strong>Recall:</strong>
-
-                    trong toàn bộ email SPAM thực tế,
-                    mô hình phát hiện được bao nhiêu.
-
-                </p>
-
-
-                <p>
-
-                    <strong>F1-score:</strong>
-
-                    chỉ số cân bằng giữa Precision
-                    và Recall.
-
-                </p>
-
-
-                <hr>
-
-
-                <p class="mb-0">
-
-                    Tập kiểm thử:
-
-                    <strong>
-                        {{ result.test_size }} email
-                    </strong>
-
-                </p>
-
+                <div class="dashboard-card-title">
+                    <div><h4>Tổng hợp kiểm thử</h4><p>Thống kê tập Testing</p></div>
+                    <i class="bi bi-clipboard-data"></i>
+                </div>
+                <div class="evaluation-summary">
+                    <div class="evaluation-summary-main"><span>Số Email Testing</span><strong>{{ result.test_size }}</strong></div>
+                    <div class="evaluation-summary-row"><span>Dự đoán đúng</span><strong class="text-success">{{ result.tn + result.tp }}</strong></div>
+                    <div class="evaluation-summary-row"><span>Dự đoán sai</span><strong class="text-danger">{{ result.fp + result.fn }}</strong></div>
+                    <div class="evaluation-summary-row"><span>SPAM phát hiện đúng</span><strong>{{ result.tp }}</strong></div>
+                    <div class="evaluation-summary-row"><span>HAM nhận đúng</span><strong>{{ result.tn }}</strong></div>
+                    <div class="evaluation-summary-row"><span>SPAM bị bỏ sót</span><strong class="text-danger">{{ result.fn }}</strong></div>
+                    <div class="evaluation-summary-row"><span>HAM bị báo nhầm SPAM</span><strong class="text-warning">{{ result.fp }}</strong></div>
+                </div>
             </div>
-
         </div>
-
     </div>
-
 </div>
 
+<div class="card">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title">
+            <div><h4>Ý nghĩa các chỉ số</h4><p>Các tiêu chí đánh giá mô hình phân loại</p></div>
+            <i class="bi bi-book"></i>
+        </div>
+        <div class="row g-3">
+            <div class="col-lg-3 col-md-6"><div class="metric-explanation"><div class="metric-explanation-icon blue">A</div><h5>Accuracy</h5><p>Tỷ lệ toàn bộ Email được mô hình phân loại chính xác.</p></div></div>
+            <div class="col-lg-3 col-md-6"><div class="metric-explanation"><div class="metric-explanation-icon green">P</div><h5>Precision</h5><p>Trong các Email được dự đoán là SPAM, có bao nhiêu Email thực sự là SPAM.</p></div></div>
+            <div class="col-lg-3 col-md-6"><div class="metric-explanation"><div class="metric-explanation-icon orange">R</div><h5>Recall</h5><p>Trong toàn bộ SPAM thực tế, mô hình phát hiện được bao nhiêu.</p></div></div>
+            <div class="col-lg-3 col-md-6"><div class="metric-explanation"><div class="metric-explanation-icon purple">F1</div><h5>F1-score</h5><p>Chỉ số cân bằng giữa Precision và Recall.</p></div></div>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body py-5 text-center evaluation-empty-state">
+        <i class="bi bi-bar-chart text-muted"></i>
+        <h5 class="mt-3">Chưa có kết quả đánh giá</h5>
+        <p class="text-muted">Hãy huấn luyện mô hình trước.</p>
+        <a href="{{ url_for('train') }}" class="btn btn-primary">Đi đến Huấn luyện</a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    document.querySelectorAll("[data-progress]").forEach(function (bar) {
+        const value = Number.parseFloat(bar.dataset.progress) || 0;
+        bar.style.width = Math.min(100, Math.max(0, value)) + "%";
+    });
+});
+</script>
 {% endblock %}

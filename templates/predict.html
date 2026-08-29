@@ -1,442 +1,229 @@
 {% extends "base.html" %}
 
+{% block title %}Phân loại thư - AI Spam Classifier{% endblock %}
+
 {% block content %}
-
-<div class="mb-4">
-
+<div class="page-title">
     <h2>Phân loại thư</h2>
-
-    <p class="text-muted">
-        Nhập nội dung email để mô hình Naïve Bayes
-        xác định đây là SPAM hay HAM.
-    </p>
-
+    <p>Nhập nội dung email để mô hình TF-IDF và Multinomial Naive Bayes phân loại SPAM hoặc HAM.</p>
 </div>
 
-{% if model_status.outdated %}
-
-<div class="alert alert-warning" role="alert">
-    <i class="bi bi-exclamation-triangle me-1"></i>
-    {{ model_status.message }}
-    <a href="{{ url_for('train') }}" class="alert-link">
-        Huấn luyện lại ngay
-    </a>
+{% if model_status and not model_status.trained %}
+<div class="alert alert-danger custom-alert" role="alert">
+    <i class="bi bi-exclamation-circle-fill me-2"></i>
+    <strong>Mô hình chưa được huấn luyện.</strong>
+    Hãy huấn luyện mô hình trước khi phân loại.
+    <a href="{{ url_for('train') }}" class="btn btn-danger btn-sm ms-2">Đi đến Huấn luyện</a>
 </div>
-
+{% elif model_status and model_status.outdated %}
+<div class="alert alert-warning custom-alert" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>Dataset đã thay đổi.</strong>
+    Model hiện tại vẫn sử dụng được nhưng bạn nên huấn luyện lại để cập nhật dữ liệu mới.
+</div>
 {% endif %}
 
-
-<div class="row g-4">
-
-    <!-- =====================
-         FORM NHẬP EMAIL
-    ====================== -->
-
-    <div class="col-md-7">
-
-        <div class="card shadow-sm">
-
+<div class="row g-4 predict-layout">
+    <div class="col-lg-7">
+        <div class="card predict-input-card">
             <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Nhập nội dung Email
-                </h4>
-
-
-                {% if error %}
-
-                <div class="alert alert-danger">
-
-                    <i class="bi bi-exclamation-circle"></i>
-
-                    {{ error }}
-
+                <div class="predict-card-header">
+                    <div class="predict-header-icon"><i class="bi bi-envelope"></i></div>
+                    <div>
+                        <h4>Nội dung Email</h4>
+                        <p>Nhập email cần kiểm tra vào biểu mẫu bên dưới.</p>
+                    </div>
                 </div>
 
+                {% if error %}
+                <div class="alert alert-danger" role="alert">
+                    <i class="bi bi-exclamation-circle me-2"></i>{{ error }}
+                </div>
                 {% endif %}
 
-
                 <form method="POST" id="predictForm">
-
-                    <!-- TIÊU ĐỀ -->
-
-                    <div class="mb-3">
-
-                        <label class="form-label">
-                            Tiêu đề Email
-                        </label>
-
-                        <input
-                            type="text"
-                            id="subject"
-                            name="subject"
-                            class="form-control"
-                            placeholder="Nhập tiêu đề email..."
-                            value="{{ subject }}"
-                        >
-
+                    <div class="mb-4">
+                        <label for="subject" class="form-label fw-semibold">Tiêu đề Email</label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-type"></i></span>
+                            <input
+                                type="text"
+                                id="subject"
+                                name="subject"
+                                class="form-control"
+                                placeholder="Ví dụ: Meeting tomorrow..."
+                                value="{{ subject or '' }}"
+                            >
+                        </div>
                     </div>
 
-
-                    <!-- NỘI DUNG -->
-
-                    <div class="mb-3">
-
-                        <label class="form-label">
-                            Nội dung Email
-                        </label>
-
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between align-items-center gap-3">
+                            <label for="message" class="form-label fw-semibold">Nội dung Email</label>
+                            <small class="text-muted text-nowrap" id="characterCount" aria-live="polite">0 ký tự</small>
+                        </div>
                         <textarea
                             id="message"
                             name="message"
-                            class="form-control"
-                            rows="9"
-                            placeholder="Nhập nội dung email cần kiểm tra..."
-                        >{{ message }}</textarea>
-
+                            class="form-control predict-textarea"
+                            rows="10"
+                            placeholder="Nhập nội dung Email cần phân loại..."
+                        >{{ message or '' }}</textarea>
                     </div>
 
+                    <small class="text-muted predict-form-note">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Hỗ trợ nội dung tiếng Việt và tiếng Anh. Văn bản sẽ được chuẩn hóa Unicode,
+                        tiền xử lý và chuyển thành vector TF-IDF.
+                    </small>
 
-                    <!-- BUTTON -->
-
-                    <div class="d-flex flex-wrap gap-2">
-
-                        <button
-                            type="submit"
-                            class="btn btn-primary"
-                        >
-
-                            <i class="bi bi-search"></i>
-
-                            Phân loại thư
-
+                    <div class="predict-buttons mt-4">
+                        <button type="submit" class="btn btn-primary predict-main-button" id="predictButton">
+                            <i class="bi bi-stars"></i> Phân loại thư
                         </button>
-
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-danger"
-                            onclick="exampleSpam()"
-                        >
-
-                            <i class="bi bi-exclamation-triangle"></i>
-
-                            Ví dụ SPAM
-
+                        <button type="button" class="btn btn-outline-danger" id="spamExampleButton">
+                            <i class="bi bi-exclamation-triangle"></i> SPAM mẫu
                         </button>
-
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-success"
-                            onclick="exampleHam()"
-                        >
-
-                            <i class="bi bi-check-circle"></i>
-
-                            Ví dụ HAM
-
+                        <button type="button" class="btn btn-outline-success" id="hamExampleButton">
+                            <i class="bi bi-check-circle"></i> HAM mẫu
                         </button>
-
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-secondary"
-                            onclick="clearEmail()"
-                        >
-
-                            <i class="bi bi-x-circle"></i>
-
-                            Xóa nội dung
-
+                        <button type="button" class="btn btn-outline-secondary" id="clearEmailButton">
+                            <i class="bi bi-eraser"></i> Xóa
                         </button>
-
                     </div>
-
                 </form>
-
             </div>
-
         </div>
-
     </div>
 
-
-    <!-- =====================
-         KẾT QUẢ
-    ====================== -->
-
-    <div class="col-md-5">
-
-        <div class="card shadow-sm h-100">
-
+    <div class="col-lg-5">
+        <div class="card ai-result-card">
             <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Kết quả phân loại
-                </h4>
-
+                <div class="dashboard-card-title">
+                    <div><h4>Kết quả phân tích</h4><p>Kết quả từ mô hình Naive Bayes</p></div>
+                    <i class="bi bi-cpu"></i>
+                </div>
 
                 {% if result %}
-
-
                     {% if result.prediction == "spam" %}
-
-                    <div class="alert alert-danger text-center py-4">
-
-                        <i
-                            class="bi bi-exclamation-triangle"
-                            style="font-size: 40px;"
-                        ></i>
-
-                        <h2 class="mt-2">
-                            SPAM
-                        </h2>
-
-                        <p class="mb-0">
-                            Email có khả năng là thư rác.
-                        </p>
-
+                    <div class="prediction-result spam-result">
+                        <div class="prediction-result-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
+                        <span>KẾT QUẢ</span><h2>SPAM</h2><p>Email có khả năng là thư rác.</p>
                     </div>
-
                     {% else %}
-
-                    <div class="alert alert-success text-center py-4">
-
-                        <i
-                            class="bi bi-check-circle"
-                            style="font-size: 40px;"
-                        ></i>
-
-                        <h2 class="mt-2">
-                            HAM
-                        </h2>
-
-                        <p class="mb-0">
-                            Email có khả năng là thư bình thường.
-                        </p>
-
+                    <div class="prediction-result ham-result">
+                        <div class="prediction-result-icon"><i class="bi bi-check-circle-fill"></i></div>
+                        <span>KẾT QUẢ</span><h2>HAM</h2><p>Email có khả năng là thư bình thường.</p>
                     </div>
-
                     {% endif %}
 
-
-                    <!-- CONFIDENCE -->
-
-                    <div class="mb-4">
-
-                        <span class="text-muted">
-                            Độ tin cậy
-                        </span>
-
-                        <h3 class="mt-1">
-
-                            {{ "%.2f"|format(
-                                result.confidence * 100
-                            ) }}%
-
-                        </h3>
-
+                    <div class="confidence-box">
+                        <div><span>Độ tin cậy</span><small>Confidence Score</small></div>
+                        <strong>{{ "%.2f"|format(result.confidence * 100) }}%</strong>
                     </div>
 
-
-                    <!-- SPAM -->
-
-                    <div class="mb-4">
-
-                        <div
-                            class="d-flex justify-content-between"
-                        >
-
-                            <span>
-                                Xác suất SPAM
-                            </span>
-
-                            <strong class="text-danger">
-
-                                {{ "%.2f"|format(
-                                    result.spam_probability * 100
-                                ) }}%
-
-                            </strong>
-
-                        </div>
-
-
-                        <div class="progress mt-2">
-
-                            <div
-                                class="progress-bar bg-danger"
-                                data-progress="{{ result.spam_probability * 100 }}"
-                            >
+                    <div class="probability-section">
+                        <div class="probability-item">
+                            <div class="probability-header">
+                                <div><span class="probability-dot spam"></span>SPAM</div>
+                                <strong class="text-danger">{{ "%.2f"|format(result.spam_probability * 100) }}%</strong>
                             </div>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- HAM -->
-
-                    <div>
-
-                        <div
-                            class="d-flex justify-content-between"
-                        >
-
-                            <span>
-                                Xác suất HAM
-                            </span>
-
-                            <strong class="text-success">
-
-                                {{ "%.2f"|format(
-                                    result.ham_probability * 100
-                                ) }}%
-
-                            </strong>
-
-                        </div>
-
-
-                        <div class="progress mt-2">
-
-                            <div
-                                class="progress-bar bg-success"
-                                data-progress="{{ result.ham_probability * 100 }}"
-                            >
+                            <div class="progress" role="progressbar" aria-label="Xác suất SPAM" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ result.spam_probability * 100 }}">
+                                <div class="progress-bar bg-danger" data-progress="{{ result.spam_probability * 100 }}"></div>
                             </div>
-
                         </div>
-
+                        <div class="probability-item">
+                            <div class="probability-header">
+                                <div><span class="probability-dot ham"></span>HAM</div>
+                                <strong class="text-success">{{ "%.2f"|format(result.ham_probability * 100) }}%</strong>
+                            </div>
+                            <div class="progress" role="progressbar" aria-label="Xác suất HAM" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{ result.ham_probability * 100 }}">
+                                <div class="progress-bar bg-success" data-progress="{{ result.ham_probability * 100 }}"></div>
+                            </div>
+                        </div>
                     </div>
 
                     {% if result.important_words %}
-
-                    <hr class="my-4">
-
-                    <h5 class="mb-3">
-                        <i class="bi bi-lightbulb"></i>
-                        Các từ ảnh hưởng đến kết quả
-                    </h5>
-
-                    <p class="text-muted small">
-                        Điểm dương nghiêng về SPAM, điểm âm nghiêng về HAM.
-                        Đây là điểm ảnh hưởng tương đối, không phải xác suất.
-                    </p>
-
-                    <div class="list-group">
-
-                        {% for item in result.important_words %}
-
-                        <div
-                            class="list-group-item d-flex justify-content-between align-items-center gap-3"
-                        >
-                            <div>
-                                <i class="bi bi-tag me-1"></i>
-                                <strong>{{ item.word }}</strong>
-                            </div>
-
-                            {% if item.score > 0 %}
-                                <span class="badge bg-danger">
-                                    SPAM +{{ "%.3f"|format(item.score) }}
-                                </span>
-                            {% else %}
-                                <span class="badge bg-success">
-                                    HAM {{ "%.3f"|format(item.score) }}
-                                </span>
-                            {% endif %}
+                    <div class="important-words">
+                        <div class="important-words-title">
+                            <div><i class="bi bi-lightbulb"></i>Các từ ảnh hưởng</div>
+                            <small>Top {{ result.important_words|length }}</small>
                         </div>
-
-                        {% endfor %}
-
+                        <p class="important-help">Các đặc trưng có ảnh hưởng đáng chú ý đến quyết định của mô hình.</p>
+                        <div class="word-list">
+                            {% for item in result.important_words %}
+                            <div class="word-item">
+                                <div class="word-name"><i class="bi bi-tag"></i>{{ item.word }}</div>
+                                {% if item.score > 0 %}
+                                <span class="word-score spam">SPAM +{{ "%.3f"|format(item.score) }}</span>
+                                {% else %}
+                                <span class="word-score ham">HAM {{ "%.3f"|format(item.score) }}</span>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
                     </div>
-
                     {% endif %}
-
-
                 {% else %}
-
-                <div class="text-center py-5">
-
-                    <i
-                        class="bi bi-envelope-check"
-                        style="font-size: 55px;"
-                    ></i>
-
-                    <p class="text-muted mt-3">
-
-                        Nhập nội dung email và nhấn
-                        <strong>Phân loại thư</strong>
-                        để xem kết quả.
-
-                    </p>
-
+                <div class="predict-empty-state">
+                    <div class="predict-empty-icon"><i class="bi bi-envelope-open"></i></div>
+                    <h5>Chưa có kết quả</h5>
+                    <p>Nhập nội dung Email ở bên trái và nhấn <strong>Phân loại thư</strong> để bắt đầu phân tích.</p>
+                    <div class="predict-process" aria-label="Quy trình phân loại">
+                        <span>Email</span><i class="bi bi-arrow-right"></i>
+                        <span>TF-IDF</span><i class="bi bi-arrow-right"></i>
+                        <span>Naive Bayes</span><i class="bi bi-arrow-right"></i>
+                        <span>Kết quả</span>
+                    </div>
                 </div>
-
                 {% endif %}
-
             </div>
-
         </div>
-
     </div>
-
 </div>
+{% endblock %}
 
-
-<!-- =====================
-     JAVASCRIPT
-====================== -->
-
+{% block scripts %}
 <script>
-
-function exampleSpam() {
-
-    document.getElementById("subject").value =
-        "Congratulations! You are a winner";
-
-    document.getElementById("message").value =
-        "Congratulations! You have won a free cash prize. "
-        + "Click here now to claim your reward.";
-
-}
-
-
-function exampleHam() {
-
-    document.getElementById("subject").value =
-        "Meeting tomorrow";
-
-    document.getElementById("message").value =
-        "Hello, are we still meeting tomorrow at 9 AM? "
-        + "Please let me know when you are available.";
-
-}
-
-
-function clearEmail() {
-
-    document.getElementById("subject").value = "";
-
-    document.getElementById("message").value = "";
-
-}
-
 document.addEventListener("DOMContentLoaded", function () {
+    const subject = document.getElementById("subject");
+    const message = document.getElementById("message");
+    const counter = document.getElementById("characterCount");
 
-    const progressBars = document.querySelectorAll("[data-progress]");
+    function updateCounter() {
+        if (message && counter) {
+            counter.textContent = message.value.length + " ký tự";
+        }
+    }
 
-    progressBars.forEach(function (bar) {
+    updateCounter();
+    if (message) {
+        message.addEventListener("input", updateCounter);
+    }
 
-        const value = bar.getAttribute("data-progress");
-
-        bar.style.width = value + "%";
-
+    document.getElementById("spamExampleButton")?.addEventListener("click", function () {
+        subject.value = "Congratulations! You are a winner";
+        message.value = "Congratulations! You have won a free cash prize. Click here now to claim your reward.";
+        updateCounter();
     });
 
+    document.getElementById("hamExampleButton")?.addEventListener("click", function () {
+        subject.value = "Meeting tomorrow";
+        message.value = "Hello, are we still meeting tomorrow at 9 AM? Please let me know when you are available.";
+        updateCounter();
+    });
+
+    document.getElementById("clearEmailButton")?.addEventListener("click", function () {
+        subject.value = "";
+        message.value = "";
+        updateCounter();
+        message.focus();
+    });
+
+    document.querySelectorAll("[data-progress]").forEach(function (bar) {
+        const value = Number.parseFloat(bar.dataset.progress) || 0;
+        bar.style.width = Math.min(100, Math.max(0, value)) + "%";
+    });
 });
-
 </script>
-
 {% endblock %}

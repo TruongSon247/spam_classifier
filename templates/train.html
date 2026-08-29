@@ -1,418 +1,172 @@
 {% extends "base.html" %}
 
+{% block title %}Huấn luyện - AI Spam Classifier{% endblock %}
+
 {% block content %}
-
-<div class="mb-4">
-
-    <h2>Huấn luyện mô hình</h2>
-
-    <p class="text-muted">
-        Huấn luyện mô hình phân loại thư rác bằng thuật toán
-        Multinomial Naïve Bayes.
-    </p>
-
+<div class="train-page-header">
+    <div class="page-title mb-0">
+        <h2>Huấn luyện mô hình</h2>
+        <p>Huấn luyện Multinomial Naive Bayes trên Dataset hiện tại.</p>
+    </div>
 </div>
 
 {% if not model_status.trained %}
-
-<div class="alert alert-warning" role="alert">
-    <i class="bi bi-exclamation-triangle me-1"></i>
-    <strong>Mô hình chưa được huấn luyện.</strong>
-    Hãy huấn luyện để tạo model và vectorizer.
+<div class="alert alert-danger custom-alert mt-4" role="alert">
+    <i class="bi bi-exclamation-circle-fill me-2"></i><strong>Mô hình chưa được huấn luyện.</strong>
+    Hãy huấn luyện mô hình để sử dụng chức năng phân loại Email.
 </div>
-
 {% elif model_status.outdated %}
-
-<div class="alert alert-warning" role="alert">
-    <i class="bi bi-exclamation-triangle me-1"></i>
-    Dataset đã thay đổi.
-    <strong>Bạn nên huấn luyện lại mô hình.</strong>
+<div class="alert alert-warning custom-alert mt-4" role="alert">
+    <i class="bi bi-arrow-repeat me-2"></i><strong>Dataset đã thay đổi.</strong>
+    Mô hình hiện tại đã cũ và nên được huấn luyện lại.
 </div>
-
 {% else %}
-
-<div class="alert alert-success" role="alert">
-    <i class="bi bi-check-circle me-1"></i>
-    Model hiện tại đã được huấn luyện với Dataset mới nhất.
+<div class="alert alert-success custom-alert mt-4" role="alert">
+    <i class="bi bi-check-circle-fill me-2"></i><strong>Model đã sẵn sàng.</strong>
+    Mô hình hiện tại đang đồng bộ với Dataset.
 </div>
-
 {% endif %}
 
-
-<div class="row g-4">
-
-    <!-- THÔNG TIN DATASET -->
-
-    <div class="col-md-7">
-
-        <div class="card shadow-sm">
-
-            <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Thông tin huấn luyện
-                </h4>
-
-
-                <div class="row g-3">
-
-                    <div class="col-md-6">
-
-                        <div class="border rounded p-3">
-
-                            <small class="text-muted">
-                                Tổng dữ liệu
-                            </small>
-
-                            <h3 class="mt-2">
-                                {{ total }}
-                            </h3>
-
-                            <span class="text-muted">
-                                email
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="col-md-6">
-
-                        <div class="border rounded p-3">
-
-                            <small class="text-muted">
-                                Thuật toán
-                            </small>
-
-                            <h5 class="mt-2">
-                                Multinomial Naïve Bayes
-                            </h5>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="col-md-6">
-
-                        <div class="border rounded p-3">
-
-                            <small class="text-muted">
-                                Training
-                            </small>
-
-                            <h3 class="mt-2">
-                                80%
-                            </h3>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="col-md-6">
-
-                        <div class="border rounded p-3">
-
-                            <small class="text-muted">
-                                Testing
-                            </small>
-
-                            <h3 class="mt-2">
-                                20%
-                            </h3>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="col-md-6">
-
-                        <div class="border rounded p-3">
-
-                            <small class="text-muted">
-                                SPAM
-                            </small>
-
-                            <h3 class="mt-2 text-danger">
-                                {{ spam_count }}
-                            </h3>
-
-                        </div>
-
-                    </div>
-
-
-                    <div class="col-md-6">
-
-                        <div class="border rounded p-3">
-
-                            <small class="text-muted">
-                                HAM
-                            </small>
-
-                            <h3 class="mt-2 text-success">
-                                {{ ham_count }}
-                            </h3>
-
-                        </div>
-
-                    </div>
-
-                </div>
-
-
-                <hr class="my-4">
-
-
-                <div class="mb-3">
-
-                    <strong>Vector hóa:</strong>
-
-                    <span class="badge bg-primary">
-                        TF-IDF
-                    </span>
-
-                </div>
-
-
-                <div class="mb-4">
-
-                    <strong>Tham số alpha:</strong>
-
-                    <span class="badge bg-secondary">
-                        1.0
-                    </span>
-
-                </div>
-
-
-                <form method="POST">
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary btn-lg"
-                    >
-
-                        <i class="bi bi-cpu"></i>
-
-                        Huấn luyện mô hình
-
-                    </button>
-
-                </form>
-
-            </div>
-
+<div class="row g-3 mt-1 mb-4">
+    <div class="col-md-4">
+        <div class="training-stat-card">
+            <div class="training-stat-icon blue"><i class="bi bi-database"></i></div>
+            <div><span>Tổng dữ liệu</span><h3>{{ total }}</h3><small>Email</small></div>
         </div>
-
     </div>
-
-
-    <!-- KẾT QUẢ -->
-
-    <div class="col-md-5">
-
-        <div class="card shadow-sm">
-
-            <div class="card-body p-4">
-
-                <h4 class="mb-4">
-                    Kết quả huấn luyện
-                </h4>
-
-
-                {% if result %}
-
-                <div class="alert alert-success">
-
-                    <i class="bi bi-check-circle"></i>
-
-                    Huấn luyện mô hình thành công!
-
-                </div>
-
-
-                <div class="mb-3">
-
-                    <span class="text-muted">
-                        Tổng dữ liệu
-                    </span>
-
-                    <h4>
-                        {{ result.total }}
-                    </h4>
-
-                </div>
-
-
-                <div class="mb-3">
-
-                    <span class="text-muted">
-                        Training samples
-                    </span>
-
-                    <h4>
-                        {{ result.train_size }}
-                    </h4>
-
-                </div>
-
-
-                <div class="mb-3">
-
-                    <span class="text-muted">
-                        Testing samples
-                    </span>
-
-                    <h4>
-                        {{ result.test_size }}
-                    </h4>
-
-                </div>
-
-
-                <div class="mb-3">
-
-                    <span class="text-muted">
-                        Vocabulary
-                    </span>
-
-                    <h4>
-                        {{ result.vocabulary_size }}
-                    </h4>
-
-                </div>
-
-
-                <div class="mb-3">
-
-                    <span class="text-muted">
-                        Accuracy
-                    </span>
-
-                    <h2 class="text-success">
-
-                        {{ "%.2f"|format(
-                            result.accuracy * 100
-                        ) }}%
-
-                    </h2>
-
-                </div>
-
-
-                <div>
-
-                    <span class="text-muted">
-                        Thời gian huấn luyện
-                    </span>
-
-                    <h4>
-
-                        {{ "%.3f"|format(
-                            result.training_time
-                        ) }} giây
-
-                    </h4>
-
-                </div>
-
-
-                {% else %}
-
-                <div class="text-center py-5">
-
-                    <i
-                        class="bi bi-cpu"
-                        style="font-size: 50px;"
-                    ></i>
-
-                    <p class="text-muted mt-3">
-
-                        Nhấn nút
-                        <strong>Huấn luyện mô hình</strong>
-                        để bắt đầu.
-
-                    </p>
-
-                </div>
-
-                {% endif %}
-
-            </div>
-
+    <div class="col-md-4">
+        <div class="training-stat-card">
+            <div class="training-stat-icon red"><i class="bi bi-exclamation-triangle"></i></div>
+            <div><span>SPAM</span><h3 class="text-danger">{{ spam_count }}</h3><small>Thư rác</small></div>
         </div>
-
     </div>
-
+    <div class="col-md-4">
+        <div class="training-stat-card">
+            <div class="training-stat-icon green"><i class="bi bi-check-circle"></i></div>
+            <div><span>HAM</span><h3 class="text-success">{{ ham_count }}</h3><small>Thư bình thường</small></div>
+        </div>
+    </div>
 </div>
+
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title">
+            <div><h4>Quy trình huấn luyện</h4><p>Các bước xử lý dữ liệu của hệ thống</p></div>
+            <i class="bi bi-diagram-3"></i>
+        </div>
+        <div class="training-pipeline" aria-label="Quy trình huấn luyện">
+            <div class="pipeline-item"><div class="pipeline-icon blue"><i class="bi bi-database"></i></div><strong>Dataset</strong><span>label, text</span></div>
+            <div class="pipeline-arrow"><i class="bi bi-arrow-right"></i></div>
+            <div class="pipeline-item"><div class="pipeline-icon orange"><i class="bi bi-funnel"></i></div><strong>Tiền xử lý</strong><span>Làm sạch văn bản</span></div>
+            <div class="pipeline-arrow"><i class="bi bi-arrow-right"></i></div>
+            <div class="pipeline-item"><div class="pipeline-icon purple"><i class="bi bi-grid"></i></div><strong>TF-IDF</strong><span>Vector hóa</span></div>
+            <div class="pipeline-arrow"><i class="bi bi-arrow-right"></i></div>
+            <div class="pipeline-item"><div class="pipeline-icon green"><i class="bi bi-cpu"></i></div><strong>Naive Bayes</strong><span>MultinomialNB</span></div>
+            <div class="pipeline-arrow"><i class="bi bi-arrow-right"></i></div>
+            <div class="pipeline-item"><div class="pipeline-icon red"><i class="bi bi-box"></i></div><strong>Model</strong><span>model.pkl</span></div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card h-100">
+            <div class="card-body p-4">
+                <div class="dashboard-card-title">
+                    <div><h4>Cấu hình huấn luyện</h4><p>Thông số đang được sử dụng</p></div>
+                    <i class="bi bi-sliders"></i>
+                </div>
+                <div class="training-config-list">
+                    <div class="training-config-item"><div><span>Thuật toán</span><strong>Multinomial Naive Bayes</strong></div><i class="bi bi-cpu"></i></div>
+                    <div class="training-config-item"><div><span>Vectorizer</span><strong>TF-IDF</strong></div><i class="bi bi-grid-3x3"></i></div>
+                    <div class="training-config-item"><div><span>N-Gram</span><strong>Unigram + Bigram</strong></div><i class="bi bi-list-columns"></i></div>
+                    <div class="training-config-item"><div><span>Training Set</span><strong>80%</strong></div><i class="bi bi-percent"></i></div>
+                    <div class="training-config-item"><div><span>Testing Set</span><strong>20%</strong></div><i class="bi bi-percent"></i></div>
+                    <div class="training-config-item"><div><span>Alpha</span><strong>1.0</strong></div><i class="bi bi-123"></i></div>
+                    <div class="training-config-item"><div><span>Random State</span><strong>42</strong></div><i class="bi bi-shuffle"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card h-100">
+            <div class="card-body p-4">
+                <div class="dashboard-card-title">
+                    <div><h4>Bắt đầu huấn luyện</h4><p>Tạo lại mô hình từ Dataset hiện tại</p></div>
+                    <i class="bi bi-play-circle"></i>
+                </div>
+                <div class="train-action-panel">
+                    <div class="train-action-icon"><i class="bi bi-cpu-fill"></i></div>
+                    <h4>Train Model</h4>
+                    <p>Hệ thống sẽ chia Dataset thành 80% Training và 20% Testing, sau đó huấn luyện mô hình Multinomial Naive Bayes.</p>
+                    <form method="POST" id="trainForm">
+                        <button type="submit" class="btn btn-primary w-100 train-main-button" id="trainButton">
+                            <i class="bi bi-play-fill me-1"></i> Huấn luyện mô hình
+                        </button>
+                    </form>
+                    <small><i class="bi bi-info-circle me-1"></i>File model cũ sẽ được cập nhật sau khi Train thành công.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if result %}
+<div class="card mb-4 train-result-card">
+    <div class="card-body p-4">
+        <div class="train-result-header">
+            <div class="train-success-icon"><i class="bi bi-check-lg"></i></div>
+            <div><h4>Huấn luyện thành công</h4><p>Mô hình mới đã được lưu và sẵn sàng sử dụng.</p></div>
+        </div>
+        <div class="row g-3 mt-2">
+            <div class="col-md-3"><div class="train-result-item"><span>Training</span><strong>{{ result.train_size }}</strong></div></div>
+            <div class="col-md-3"><div class="train-result-item"><span>Testing</span><strong>{{ result.test_size }}</strong></div></div>
+            <div class="col-md-3"><div class="train-result-item"><span>Vocabulary</span><strong>{{ result.vocabulary_size }}</strong></div></div>
+            <div class="col-md-3"><div class="train-result-item highlight"><span>Accuracy</span><strong>{{ "%.2f"|format(result.accuracy * 100) }}%</strong></div></div>
+        </div>
+        <div class="train-result-footer">
+            <div><i class="bi bi-stopwatch"></i> Thời gian: <strong>{{ "%.4f"|format(result.training_time) }} giây</strong></div>
+            {% if result.trained_at %}<div><i class="bi bi-calendar-check"></i> {{ result.trained_at }}</div>{% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
 
 {% if model_info %}
-
-<div class="card shadow-sm mt-4">
-
+<div class="card">
     <div class="card-body p-4">
-
-        <h4 class="mb-4">Thông tin Model hiện tại</h4>
-
-        <div class="table-responsive">
-            <table class="table align-middle mb-0">
-                <tbody>
-                    <tr>
-                        <th>Thuật toán</th>
-                        <td>{{ model_info.model_name }}</td>
-                    </tr>
-                    <tr>
-                        <th>Vectorizer</th>
-                        <td>{{ model_info.vectorizer }}</td>
-                    </tr>
-                    <tr>
-                        <th>Alpha</th>
-                        <td>{{ model_info.alpha }}</td>
-                    </tr>
-                    <tr>
-                        <th>Dataset</th>
-                        <td>{{ model_info.total }} email</td>
-                    </tr>
-                    <tr>
-                        <th>Training samples</th>
-                        <td>{{ model_info.train_size }}</td>
-                    </tr>
-                    <tr>
-                        <th>Testing samples</th>
-                        <td>{{ model_info.test_size }}</td>
-                    </tr>
-                    <tr>
-                        <th>Vocabulary</th>
-                        <td>{{ model_info.vocabulary_size }}</td>
-                    </tr>
-                    <tr>
-                        <th>Accuracy</th>
-                        <td class="text-success fw-bold">
-                            {{ "%.2f"|format(model_info.accuracy * 100) }}%
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Thời gian huấn luyện</th>
-                        <td>
-                            {{ "%.3f"|format(model_info.training_time) }} giây
-                        </td>
-                    </tr>
-                    <tr>
-                        <th>Huấn luyện lúc</th>
-                        <td>{{ model_info.trained_at }}</td>
-                    </tr>
-                </tbody>
-            </table>
+        <div class="dashboard-card-title">
+            <div><h4>Thông tin Model hiện tại</h4><p>Thông tin của lần huấn luyện gần nhất</p></div>
+            <i class="bi bi-info-circle"></i>
         </div>
-
+        <div class="model-info-grid">
+            <div class="model-info-item"><span>Model</span><strong>{{ model_info["model_name"] }}</strong></div>
+            <div class="model-info-item"><span>Vectorizer</span><strong>{{ model_info["vectorizer"] }}</strong></div>
+            <div class="model-info-item"><span>Alpha</span><strong>{{ model_info["alpha"] }}</strong></div>
+            <div class="model-info-item"><span>Dataset</span><strong>{{ model_info["total"] }}</strong></div>
+            <div class="model-info-item"><span>Training</span><strong>{{ model_info["train_size"] }}</strong></div>
+            <div class="model-info-item"><span>Testing</span><strong>{{ model_info["test_size"] }}</strong></div>
+            <div class="model-info-item"><span>Vocabulary</span><strong>{{ model_info["vocabulary_size"] }}</strong></div>
+            <div class="model-info-item highlight"><span>Accuracy</span><strong>{{ "%.2f"|format(model_info["accuracy"] * 100) }}%</strong></div>
+            <div class="model-info-item"><span>Training Time</span><strong>{{ "%.4f"|format(model_info["training_time"]) }} giây</strong></div>
+            <div class="model-info-item model-info-wide"><span>Huấn luyện lúc</span><strong>{{ model_info["trained_at"] }}</strong></div>
+        </div>
     </div>
-
 </div>
-
 {% endif %}
+{% endblock %}
 
+{% block scripts %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const form = document.getElementById("trainForm");
+    const button = document.getElementById("trainButton");
+    if (form && button) {
+        form.addEventListener("submit", function () {
+            button.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang huấn luyện...';
+        });
+    }
+});
+</script>
 {% endblock %}

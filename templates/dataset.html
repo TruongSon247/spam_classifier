@@ -1,659 +1,245 @@
 {% extends "base.html" %}
 
+{% block title %}Dataset - AI Spam Classifier{% endblock %}
+
 {% block content %}
-
-<div
-    class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-4"
->
-
-    <div>
+<div class="dataset-page-header">
+    <div class="page-title mb-0">
         <h2>Dataset</h2>
-
-        <p class="text-muted mb-0">
-            Dữ liệu huấn luyện mô hình Naïve Bayes
-        </p>
+        <p>Quản lý dữ liệu huấn luyện của mô hình Multinomial Naive Bayes.</p>
     </div>
-
-    <div class="d-flex flex-wrap gap-2">
-
-    <span
-        class="badge bg-primary fs-6 d-flex align-items-center"
-    >
-        Tổng: {{ total }} email
-    </span>
-
-    <button
-        type="button"
-        class="btn btn-primary"
-        data-bs-toggle="modal"
-        data-bs-target="#importModal"
-    >
-        <i class="bi bi-upload"></i>
-        Import CSV
-    </button>
-
-    <button
-        type="button"
-        class="btn btn-success"
-        data-bs-toggle="modal"
-        data-bs-target="#addEmailModal"
-    >
-        <i class="bi bi-plus-circle"></i>
-        Thêm Email
-    </button>
-
+    <div class="dataset-actions">
+        <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importModal">
+            <i class="bi bi-cloud-arrow-up me-1"></i> Import CSV
+        </button>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmailModal">
+            <i class="bi bi-plus-circle me-1"></i> Thêm Email
+        </button>
     </div>
-
 </div>
 
-{% if request.args.get("imported") %}
-<div class="alert alert-success alert-dismissible fade show" role="alert">
-    Đã import thành công {{ request.args.get("imported") }} email.
-    <button
-        type="button"
-        class="btn-close"
-        data-bs-dismiss="alert"
-        aria-label="Đóng"
-    ></button>
-</div>
-{% elif request.args.get("import_error") %}
-<div class="alert alert-danger alert-dismissible fade show" role="alert">
-    {% set import_error = request.args.get("import_error") %}
-    {% if import_error == "missing_file" %}
-        Vui lòng chọn tệp CSV.
-    {% elif import_error == "invalid_type" %}
-        Tệp được chọn phải có định dạng CSV.
-    {% elif import_error == "missing_columns" %}
-        Tệp CSV phải có hai cột: label và text.
-    {% elif import_error == "no_valid_rows" %}
-        Tệp CSV không có dòng hợp lệ với nhãn spam hoặc ham.
-    {% else %}
-        Không thể đọc tệp CSV. Vui lòng kiểm tra lại định dạng và encoding UTF-8.
-    {% endif %}
-    <button
-        type="button"
-        class="btn-close"
-        data-bs-dismiss="alert"
-        aria-label="Đóng"
-    ></button>
+{% if global_model_status.outdated %}
+<div class="alert alert-warning custom-alert mt-4" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+    <strong>Dataset đã thay đổi.</strong>
+    Sau khi chỉnh sửa dữ liệu, bạn nên huấn luyện lại mô hình để cập nhật kiến thức mới.
+    <a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện lại</a>
 </div>
 {% endif %}
 
-
-<!-- =========================
-     TÌM KIẾM VÀ BỘ LỌC
-========================= -->
-
-<div class="card shadow-sm mb-4">
-
-    <div class="card-body">
-
-        <form method="GET" class="row g-3">
-
-            <!-- TÌM KIẾM -->
-
-            <div class="col-md-7">
-
-                <label class="form-label">
-                    Tìm kiếm nội dung
-                </label>
-
-                <input
-                    type="text"
-                    name="search"
-                    class="form-control"
-                    placeholder="Nhập nội dung cần tìm..."
-                    value="{{ search }}"
-                >
-
-            </div>
-
-
-            <!-- LỌC -->
-
-            <div class="col-md-3">
-
-                <label class="form-label">
-                    Loại Email
-                </label>
-
-                <select
-                    name="label"
-                    class="form-select"
-                >
-
-                    <option
-                        value="all"
-                        {% if label == "all" %}selected{% endif %}
-                    >
-                        Tất cả
-                    </option>
-
-                    <option
-                        value="spam"
-                        {% if label == "spam" %}selected{% endif %}
-                    >
-                        SPAM
-                    </option>
-
-                    <option
-                        value="ham"
-                        {% if label == "ham" %}selected{% endif %}
-                    >
-                        HAM
-                    </option>
-
-                </select>
-
-            </div>
-
-
-            <!-- BUTTON -->
-
-            <div class="col-md-2 d-flex align-items-end">
-
-                <button
-                    type="submit"
-                    class="btn btn-primary w-100"
-                >
-                    <i class="bi bi-search"></i>
-                    Tìm
-                </button>
-
-            </div>
-
-        </form>
-
+<div class="row g-3 mt-1 mb-4">
+    <div class="col-md-4">
+        <div class="dataset-stat-card">
+            <div class="dataset-stat-icon blue"><i class="bi bi-database"></i></div>
+            <div><span>Kết quả hiện tại</span><h3>{{ total }}</h3><small>Email</small></div>
+        </div>
     </div>
-
+    <div class="col-md-4">
+        <div class="dataset-stat-card">
+            <div class="dataset-stat-icon purple"><i class="bi bi-funnel"></i></div>
+            <div>
+                <span>Bộ lọc</span>
+                <h3>{% if label == "spam" %}SPAM{% elif label == "ham" %}HAM{% else %}Tất cả{% endif %}</h3>
+                <small>Nhãn đang xem</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="dataset-stat-card">
+            <div class="dataset-stat-icon green"><i class="bi bi-file-earmark-text"></i></div>
+            <div><span>Trang hiện tại</span><h3>{{ page }} / {{ total_pages }}</h3><small>20 Email / trang</small></div>
+        </div>
+    </div>
 </div>
 
+<div class="card mb-4 dataset-filter-card">
+    <div class="card-body p-4">
+        <form method="GET" action="{{ url_for('dataset') }}">
+            <div class="row g-3 align-items-end">
+                <div class="col-lg-7">
+                    <label for="datasetSearch" class="form-label fw-semibold">Tìm kiếm nội dung</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input id="datasetSearch" type="search" name="search" class="form-control" placeholder="Nhập từ khóa cần tìm..." value="{{ search }}">
+                    </div>
+                </div>
+                <div class="col-lg-3">
+                    <label for="datasetLabel" class="form-label fw-semibold">Loại Email</label>
+                    <select id="datasetLabel" name="label" class="form-select">
+                        <option value="all"{% if label == "all" %} selected{% endif %}>Tất cả</option>
+                        <option value="spam"{% if label == "spam" %} selected{% endif %}>SPAM</option>
+                        <option value="ham"{% if label == "ham" %} selected{% endif %}>HAM</option>
+                    </select>
+                </div>
+                <div class="col-lg-2">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-search me-1"></i> Tìm kiếm</button>
+                </div>
+            </div>
 
-<!-- =========================
-     BẢNG DATASET
-========================= -->
+            {% if search or label != "all" %}
+            <div class="dataset-filter-status mt-3">
+                <span><i class="bi bi-funnel-fill me-1"></i>Đang lọc:</span>
+                {% if search %}<span class="filter-chip">Từ khóa: <strong>{{ search }}</strong></span>{% endif %}
+                {% if label != "all" %}<span class="filter-chip">Nhãn: <strong>{{ label|upper }}</strong></span>{% endif %}
+                <a href="{{ url_for('dataset') }}" class="clear-filter"><i class="bi bi-x-circle"></i> Xóa bộ lọc</a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
 
-<div class="card shadow-sm">
-
-    <div class="card-body">
-
-        <div class="table-responsive">
-
-            <table class="table table-hover align-middle">
-
-                <thead>
-
-                    <tr>
-                        <th style="width: 80px;">
-                            STT
-                        </th>
-
-                        <th style="width: 120px;">
-                            Nhãn
-                        </th>
-
-                        <th>
-                            Nội dung Email
-                        </th>
-
-                        <th style="width: 100px;">
-                            Thao tác
-                        </th>
-
-                    </tr>
-
-                </thead>
-                
-
-                <tbody>
-
-                    {% for email in emails %}
-
-                    <tr>
-
-                        <td>
-                            {{ start_index + loop.index }}
-                        </td>
-
-                        <td>
-
-                            {% if email.label == "spam" %}
-
-                                <span class="badge bg-danger">
-                                    SPAM
-                                </span>
-
-                            {% else %}
-
-                                <span class="badge bg-success">
-                                    HAM
-                                </span>
-
-                            {% endif %}
-
-                        </td>
-
-
-                        <td>
-                            {{ email.text }}
-                        </td>
-                         <!-- NÚT XÓA -->
-                        <td>
-
-                            <form
-                                method="POST"
-                                action="{{ url_for(
-                                    'delete_dataset',
-                                    index=email['index']
-                                ) }}"
-                                onsubmit="return confirm('Bạn có chắc muốn xóa email này không?')"
-                            >
-
-                                <button
-                                    type="submit"
-                                    class="btn btn-sm btn-outline-danger"
-                                >
-                                    <i class="bi bi-trash"></i>
-                                    Xóa
-                                </button>
-
-                            </form>
-
-                        </td>
-
-                    </tr>
-
-                    {% else %}
-
-                    <tr>
-
-                        <td
-                            colspan="4"
-                            class="text-center text-muted py-4"
-                        >
-                            Không tìm thấy dữ liệu.
-                        </td>
-
-                    </tr>
-
-                    {% endfor %}
-
-                </tbody>
-
-            </table>
-
+<div class="card dataset-table-card">
+    <div class="card-body p-0">
+        <div class="dataset-table-header">
+            <div><h4>Dữ liệu huấn luyện</h4><p>Danh sách Email SPAM và HAM được sử dụng để huấn luyện model.</p></div>
+            <span class="dataset-count-badge">{{ total }} kết quả</span>
         </div>
-
-
-        <!-- =========================
-             PHÂN TRANG
-        ========================= -->
+        <div class="table-responsive">
+            <table class="table dataset-table align-middle mb-0">
+                <thead>
+                    <tr><th>STT</th><th>Nhãn</th><th>Nội dung Email</th><th class="text-center">Thao tác</th></tr>
+                </thead>
+                <tbody>
+                    {% for email in emails %}
+                    <tr>
+                        <td><span class="dataset-index">{{ start_index + loop.index }}</span></td>
+                        <td>
+                            {% if email.label|lower == "spam" %}
+                            <span class="dataset-label spam"><i class="bi bi-exclamation-triangle-fill"></i> SPAM</span>
+                            {% else %}
+                            <span class="dataset-label ham"><i class="bi bi-check-circle-fill"></i> HAM</span>
+                            {% endif %}
+                        </td>
+                        <td><div class="dataset-email-content">{{ email.text }}</div></td>
+                        <td class="text-center">
+                            <form method="POST" action="{{ url_for('delete_dataset', index=email['index']) }}" class="dataset-delete-form">
+                                <button type="submit" class="btn btn-sm btn-outline-danger dataset-delete-button" title="Xóa Email" aria-label="Xóa Email">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4">
+                            <div class="dataset-empty">
+                                <div class="dataset-empty-icon"><i class="bi bi-search"></i></div>
+                                <h5>Không tìm thấy dữ liệu</h5>
+                                <p>Không có Email nào phù hợp với điều kiện tìm kiếm hiện tại.</p>
+                                <a href="{{ url_for('dataset') }}" class="btn btn-outline-primary btn-sm">Xóa bộ lọc</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
 
         {% if total_pages > 1 %}
-
-        <nav class="mt-4">
-
-            <ul class="pagination justify-content-center">
-
-
-                <!-- TRANG TRƯỚC -->
-
-                <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-
-                    <a
-                        class="page-link"
-                        href="{{ url_for(
-                            'dataset',
-                            page=page-1,
-                            search=search,
-                            label=label
-                        ) }}"
-                    >
-                        Trước
-                    </a>
-
-                </li>
-
-
-                <!-- SỐ TRANG -->
-
-                {% for p in range(1, total_pages + 1) %}
-
-                    {% if
-                        p == 1
-                        or p == total_pages
-                        or (p >= page - 2 and p <= page + 2)
-                    %}
-
-                        <li
-                            class="page-item
-                            {% if p == page %}active{% endif %}"
-                        >
-
-                            <a
-                                class="page-link"
-                                href="{{ url_for(
-                                    'dataset',
-                                    page=p,
-                                    search=search,
-                                    label=label
-                                ) }}"
-                            >
-                                {{ p }}
-                            </a>
-
+        <div class="dataset-pagination">
+            <div class="pagination-info">Trang <strong>{{ page }}</strong> trên <strong>{{ total_pages }}</strong></div>
+            <nav aria-label="Phân trang Dataset">
+                <ul class="pagination mb-0">
+                    <li class="page-item{% if page <= 1 %} disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('dataset', page=page-1, search=search, label=label) }}" aria-label="Trang trước"><i class="bi bi-chevron-left"></i></a>
+                    </li>
+                    {% for p in range(1, total_pages + 1) %}
+                        {% if p == 1 or p == total_pages or (p >= page - 2 and p <= page + 2) %}
+                        <li class="page-item{% if p == page %} active{% endif %}">
+                            <a class="page-link" href="{{ url_for('dataset', page=p, search=search, label=label) }}">{{ p }}</a>
                         </li>
-
-                    {% endif %}
-
-                {% endfor %}
-
-
-                <!-- TRANG SAU -->
-
-                <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-
-                    <a
-                        class="page-link"
-                        href="{{ url_for(
-                            'dataset',
-                            page=page+1,
-                            search=search,
-                            label=label
-                        ) }}"
-                    >
-                        Sau
-                    </a>
-
-                </li>
-
-            </ul>
-
-        </nav>
-
+                        {% elif p == page - 3 or p == page + 3 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                        {% endif %}
+                    {% endfor %}
+                    <li class="page-item{% if page >= total_pages %} disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('dataset', page=page+1, search=search, label=label) }}" aria-label="Trang sau"><i class="bi bi-chevron-right"></i></a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
         {% endif %}
-
-
-        <div class="text-center text-muted">
-
-            Trang {{ page }} / {{ total_pages }}
-
-        </div>
-
     </div>
-
 </div>
 
-<div
-    class="modal fade"
-    id="addEmailModal"
-    tabindex="-1"
->
-
-    <div class="modal-dialog">
-
-        <div class="modal-content">
-
-            <form
-                method="POST"
-                action="{{ url_for('add_dataset') }}"
-            >
-
+<div class="modal fade" id="addEmailModal" tabindex="-1" aria-labelledby="addEmailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content dataset-modal">
+            <form method="POST" action="{{ url_for('add_dataset') }}">
                 <div class="modal-header">
-
-                    <h5 class="modal-title">
-                        Thêm Email vào Dataset
-                    </h5>
-
-                    <button
-                        type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                    ></button>
-
+                    <div>
+                        <h5 class="modal-title" id="addEmailModalLabel"><i class="bi bi-plus-circle me-2"></i>Thêm Email</h5>
+                        <small class="text-muted">Thêm dữ liệu mới vào Dataset.</small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                 </div>
-
-
                 <div class="modal-body">
-
-                    <div class="mb-3">
-
-                        <label class="form-label">
-                            Nhãn
-                        </label>
-
-                        <select
-                            name="label"
-                            class="form-select"
-                            required
-                        >
-
-                            <option value="ham">
-                                HAM
-                            </option>
-
-                            <option value="spam">
-                                SPAM
-                            </option>
-
+                    <div class="mb-4">
+                        <label for="newEmailLabel" class="form-label fw-semibold">Nhãn Email</label>
+                        <select id="newEmailLabel" name="label" class="form-select" required>
+                            <option value="ham">HAM - Thư bình thường</option>
+                            <option value="spam">SPAM - Thư rác</option>
                         </select>
-
                     </div>
-
-
-                    <div class="mb-3">
-
-                        <label class="form-label">
-                            Nội dung Email
-                        </label>
-
-                        <textarea
-                            name="text"
-                            class="form-control"
-                            rows="6"
-                            required
-                            placeholder="Nhập nội dung email..."
-                        ></textarea>
-
+                    <div>
+                        <label for="newEmailText" class="form-label fw-semibold">Nội dung Email</label>
+                        <textarea id="newEmailText" name="text" class="form-control" rows="7" required placeholder="Nhập nội dung Email..."></textarea>
                     </div>
-
+                    <div class="dataset-modal-note"><i class="bi bi-info-circle"></i><span>Sau khi thêm dữ liệu, bạn nên huấn luyện lại mô hình.</span></div>
                 </div>
-
-
                 <div class="modal-footer">
-
-                    <button
-                        type="button"
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal"
-                    >
-                        Hủy
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="btn btn-success"
-                    >
-                        <i class="bi bi-save"></i>
-                        Lưu Email
-                    </button>
-
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i> Lưu Email</button>
                 </div>
-
             </form>
-
         </div>
-
     </div>
-
 </div>
 
-<!-- MODAL IMPORT CSV -->
-<div
-    class="modal fade"
-    id="importModal"
-    tabindex="-1"
-    aria-labelledby="importModalLabel"
-    aria-hidden="true"
->
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <form
-                method="POST"
-                action="{{ url_for('import_dataset') }}"
-                enctype="multipart/form-data"
-            >
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content dataset-modal">
+            <form method="POST" action="{{ url_for('import_dataset') }}" enctype="multipart/form-data">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="importModalLabel">
-                        Import Dataset từ CSV
-                    </h5>
-                    <button
-                        type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                        aria-label="Đóng"
-                    ></button>
+                    <div>
+                        <h5 class="modal-title" id="importModalLabel"><i class="bi bi-cloud-arrow-up me-2"></i>Import Dataset</h5>
+                        <small class="text-muted">Thêm nhiều Email bằng file CSV.</small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
                 </div>
-
                 <div class="modal-body">
-                    <label for="datasetCsv" class="form-label">
-                        Tệp CSV
-                    </label>
-                    <input
-                        type="file"
-                        id="datasetCsv"
-                        name="file"
-                        class="form-control"
-                        accept=".csv,text/csv"
-                        required
-                    >
-                    <div class="form-text">
-                        Tệp cần có hai cột label và text. Nhãn hợp lệ là spam hoặc ham.
+                    <div class="csv-format-box">
+                        <span>Định dạng yêu cầu</span><code>label,text</code><small>Ví dụ:</small>
+                        <pre>spam,"Congratulations! You won a prize."
+ham,"Meeting tomorrow at 9 AM."</pre>
+                    </div>
+                    <div class="mt-4">
+                        <label for="datasetCsv" class="form-label fw-semibold">Chọn file CSV</label>
+                        <input id="datasetCsv" type="file" name="file" class="form-control" accept=".csv,text/csv" required>
+                    </div>
+                    <div class="dataset-modal-note">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <span>Chỉ các dòng có nhãn <strong>spam</strong> hoặc <strong>ham</strong> mới được thêm.</span>
                     </div>
                 </div>
-
                 <div class="modal-footer">
-                    <button
-                        type="button"
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal"
-                    >
-                        Hủy
-                    </button>
-                    <button type="submit" class="btn btn-primary">
-                        <i class="bi bi-upload"></i>
-                        Import
-                    </button>
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i> Import CSV</button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
 
-<div
-    class="modal fade"
-    id="importModal"
-    tabindex="-1"
->
-
-    <div class="modal-dialog">
-
-        <div class="modal-content">
-
-            <form
-                method="POST"
-                action="{{ url_for('import_dataset') }}"
-                enctype="multipart/form-data"
-            >
-
-                <div class="modal-header">
-
-                    <h5 class="modal-title">
-                        Import Dataset CSV
-                    </h5>
-
-                    <button
-                        type="button"
-                        class="btn-close"
-                        data-bs-dismiss="modal"
-                    ></button>
-
-                </div>
-
-
-                <div class="modal-body">
-
-                    <p class="text-muted">
-
-                        File CSV phải có hai cột:
-
-                    </p>
-
-                    <pre>label,text</pre>
-
-
-                    <div class="mb-3">
-
-                        <input
-                            type="file"
-                            name="file"
-                            class="form-control"
-                            accept=".csv"
-                            required
-                        >
-
-                    </div>
-
-
-                    <div class="alert alert-info">
-
-                        Ví dụ:
-
-                        <br>
-
-                        <code>
-                            spam,"You won a prize!"
-                        </code>
-
-                        <br>
-
-                        <code>
-                            ham,"Meeting tomorrow."
-                        </code>
-
-                    </div>
-
-                </div>
-
-
-                <div class="modal-footer">
-
-                    <button
-                        type="button"
-                        class="btn btn-secondary"
-                        data-bs-dismiss="modal"
-                    >
-                        Hủy
-                    </button>
-
-                    <button
-                        type="submit"
-                        class="btn btn-primary"
-                    >
-
-                        <i class="bi bi-upload"></i>
-                        Import
-
-                    </button>
-
-                </div>
-
-            </form>
-
-        </div>
-
-    </div>
-
-</div>
-
+{% block scripts %}
+<script>
+document.querySelectorAll(".dataset-delete-form").forEach(function (form) {
+    form.addEventListener("submit", function (event) {
+        if (!window.confirm("Bạn có chắc muốn xóa Email này khỏi Dataset?")) {
+            event.preventDefault();
+        }
+    });
+});
+</script>
 {% endblock %}

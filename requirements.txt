@@ -3,5 +3,3 @@ pandas
 numpy
 scikit-learn
 joblib
-matplotlib
-nltk
