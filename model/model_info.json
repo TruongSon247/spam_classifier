@@ -12,6 +12,6 @@
     "test_size": 345,
     "vocabulary_size": 1385,
     "accuracy": 1.0,
-    "training_time": 0.06249189376831055,
-    "trained_at": "29/08/2026 10:57:50"
+    "training_time": 0.20517754554748535,
+    "trained_at": "09/09/2026 13:24:58"
 }
