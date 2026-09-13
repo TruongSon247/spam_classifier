@@ -74,7 +74,7 @@ def fetch_recent_imap_messages(account, max_results=50):
         status, data = client.uid("search", None, "ALL")
         if status != "OK":
             raise IMAPConnectionError("Không thể đọc danh sách Email.")
-        uids = (data[0] or b"").split()[-min(max_results, 50):]
+        uids = (data[0] or b"").split()[-max_results:]
         for uid in reversed(uids):
             status, fetched = client.uid("fetch", uid, "(BODY.PEEK[] FLAGS)")
             if status != "OK" or not fetched:

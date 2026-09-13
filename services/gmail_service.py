@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import os
 import urllib.parse
 import urllib.request
@@ -8,6 +9,7 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from database.db import update_email_account_credential
 from services.encryption_service import decrypt_value, encrypt_value
@@ -16,10 +18,18 @@ from services.message_parser import html_to_text, normalize_date, parse_address
 
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 SCOPES = [GMAIL_READONLY_SCOPE]
+logger = logging.getLogger(__name__)
 
 
 class GmailConfigurationError(RuntimeError):
     pass
+
+
+class GmailFetchResult(list):
+    def __init__(self, values=(), *, skipped_existing=0, rate_limited=False):
+        super().__init__(values)
+        self.skipped_existing = skipped_existing
+        self.rate_limited = rate_limited
 
 
 def _client_config():
@@ -173,15 +183,51 @@ def fetch_message_detail(account, gmail_message_id, service=None):
     return parse_gmail_message(raw)
 
 
-def fetch_recent_messages(account, max_results=50):
+def _is_rate_limit_error(error):
+    status = getattr(error.resp, "status", None)
+    content = error.content.decode("utf-8", errors="replace").lower()
+    return status in {403, 429} and any(
+        marker in content
+        for marker in ("ratelimitexceeded", "userratelimitexceeded", "quota exceeded")
+    )
+
+
+def fetch_recent_messages(account, max_results=50, excluded_ids=None):
     service = build_gmail_service(account)
-    response = service.users().messages().list(
-        userId="me", q="in:inbox", maxResults=min(max_results, 50)
-    ).execute()
-    return [
-        fetch_message_detail(account, item["id"], service=service)
-        for item in response.get("messages", [])
-    ]
+    excluded_ids = set(excluded_ids or ())
+    result = GmailFetchResult()
+    try:
+        response = service.users().messages().list(
+            userId="me", q="in:inbox", maxResults=max_results
+        ).execute()
+    except HttpError as error:
+        if not _is_rate_limit_error(error):
+            raise
+        result.rate_limited = True
+        logger.warning("Gmail rate limit reached while listing messages")
+        return result
+
+    message_refs = response.get("messages", [])
+    result.skipped_existing = sum(
+        item["id"] in excluded_ids for item in message_refs
+    )
+    for item in message_refs:
+        if item["id"] in excluded_ids:
+            continue
+        try:
+            result.append(
+                fetch_message_detail(account, item["id"], service=service)
+            )
+        except HttpError as error:
+            if not _is_rate_limit_error(error):
+                raise
+            result.rate_limited = True
+            logger.warning(
+                "Gmail rate limit reached after fetching %s new messages",
+                len(result),
+            )
+            break
+    return result
 
 
 def revoke_gmail_credentials(account):

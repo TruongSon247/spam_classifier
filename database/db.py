@@ -81,6 +81,22 @@ def init_db():
             )
         """)
         conn.execute("""
+            CREATE TABLE IF NOT EXISTS mail_rules (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                rule_type TEXT NOT NULL
+                    CHECK (rule_type IN ('whitelist', 'blacklist')),
+                target_type TEXT NOT NULL
+                    CHECK (target_type IN ('email', 'domain')),
+                target_value TEXT NOT NULL,
+                description TEXT,
+                created_by INTEGER NOT NULL REFERENCES users(id),
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(rule_type, target_type, target_value)
+            )
+        """)
+        conn.execute("""
             CREATE TABLE IF NOT EXISTS mail_messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id INTEGER NOT NULL REFERENCES users(id),
@@ -112,6 +128,8 @@ def init_db():
             "is_quarantined": "INTEGER NOT NULL DEFAULT 0",
             "user_label": "TEXT CHECK (user_label IN ('spam', 'ham') OR user_label IS NULL)",
             "feedback_at": "TIMESTAMP",
+            "policy_action": "TEXT DEFAULT 'model' CHECK (policy_action IN ('trusted', 'blocked', 'model') OR policy_action IS NULL)",
+            "matched_rule_id": "INTEGER REFERENCES mail_rules(id) ON DELETE SET NULL",
         }
         for column, definition in mail_migrations.items():
             if column not in mail_columns:
@@ -122,6 +140,11 @@ def init_db():
             UPDATE mail_messages
             SET is_quarantined = CASE WHEN prediction = 'spam' THEN 1 ELSE 0 END
             WHERE user_label IS NULL AND feedback_at IS NULL
+              AND COALESCE(policy_action, 'model') = 'model'
+        """)
+        conn.execute("""
+            UPDATE mail_messages SET policy_action = 'model'
+            WHERE policy_action IS NULL
         """)
         conn.execute("""
             CREATE TABLE IF NOT EXISTS mail_feedback (
@@ -157,6 +180,10 @@ def init_db():
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_mail_feedback_review "
             "ON mail_feedback(status, allow_training)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mail_rules_match "
+            "ON mail_rules(is_active, target_type, target_value)"
         )
 
 
@@ -362,13 +389,174 @@ def update_email_account_credential(account_id, credential_encrypted):
         """, (credential_encrypted, account_id))
 
 
+def get_mail_provider_message_ids(account_id):
+    with closing(get_connection()) as conn:
+        rows = conn.execute(
+            "SELECT provider_message_id FROM mail_messages WHERE account_id = ?",
+            (account_id,),
+        ).fetchall()
+    return {row["provider_message_id"] for row in rows}
+
+
+def create_mail_rule(rule_type, target_type, target_value, description, created_by):
+    try:
+        with closing(get_connection()) as conn, conn:
+            cursor = conn.execute("""
+                INSERT INTO mail_rules (
+                    rule_type, target_type, target_value, description, created_by
+                ) VALUES (?, ?, ?, ?, ?)
+            """, (
+                rule_type, target_type, target_value, description or None, created_by,
+            ))
+            return cursor.lastrowid
+    except sqlite3.IntegrityError as error:
+        raise ValueError("Quy tắc này đã tồn tại.") from error
+
+
+def find_rule_conflict(target_type, target_value):
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT * FROM mail_rules
+            WHERE target_type = ? AND target_value = ?
+            ORDER BY id LIMIT 1
+        """, (target_type, target_value)).fetchone()
+
+
+def get_mail_rule(rule_id):
+    with closing(get_connection()) as conn:
+        return conn.execute(
+            "SELECT * FROM mail_rules WHERE id = ?", (rule_id,)
+        ).fetchone()
+
+
+def get_mail_rules(search="", rule_type="all", target_type="all", status="all"):
+    conditions = ["1 = 1"]
+    params = []
+    if search:
+        conditions.append("mail_rules.target_value LIKE ?")
+        params.append(f"%{search}%")
+    if rule_type in {"whitelist", "blacklist"}:
+        conditions.append("mail_rules.rule_type = ?")
+        params.append(rule_type)
+    if target_type in {"email", "domain"}:
+        conditions.append("mail_rules.target_type = ?")
+        params.append(target_type)
+    if status in {"active", "disabled"}:
+        conditions.append("mail_rules.is_active = ?")
+        params.append(1 if status == "active" else 0)
+    with closing(get_connection()) as conn:
+        return conn.execute(f"""
+            SELECT mail_rules.*, users.name AS created_by_name,
+                   users.email AS created_by_email
+            FROM mail_rules
+            JOIN users ON users.id = mail_rules.created_by
+            WHERE {' AND '.join(conditions)}
+            ORDER BY mail_rules.is_active DESC, mail_rules.id DESC
+        """, params).fetchall()
+
+
+def get_active_mail_rules():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT * FROM mail_rules WHERE is_active = 1
+            ORDER BY CASE target_type WHEN 'email' THEN 0 ELSE 1 END, id
+        """).fetchall()
+
+
+def get_matching_mail_rule(sender_email):
+    sender_email = (sender_email or "").strip().lower()
+    domain = sender_email.rsplit("@", 1)[1] if "@" in sender_email else ""
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT * FROM mail_rules
+            WHERE is_active = 1 AND (
+                (target_type = 'email' AND target_value = ?)
+                OR (target_type = 'domain' AND target_value = ?)
+            )
+            ORDER BY CASE target_type WHEN 'email' THEN 0 ELSE 1 END, id
+            LIMIT 1
+        """, (sender_email, domain)).fetchone()
+
+
+def set_mail_rule_active(rule_id, active):
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute("""
+            UPDATE mail_rules
+            SET is_active = ?, updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        """, (1 if active else 0, rule_id))
+        return cursor.rowcount > 0
+
+
+def delete_mail_rule(rule_id):
+    with closing(get_connection()) as conn, conn:
+        linked = conn.execute(
+            "SELECT 1 FROM mail_messages WHERE matched_rule_id = ? LIMIT 1",
+            (rule_id,),
+        ).fetchone()
+        if linked:
+            cursor = conn.execute("""
+                UPDATE mail_rules
+                SET is_active = 0, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            """, (rule_id,))
+            return "disabled" if cursor.rowcount else None
+        cursor = conn.execute("DELETE FROM mail_rules WHERE id = ?", (rule_id,))
+        return "deleted" if cursor.rowcount else None
+
+
+def get_mail_rule_statistics():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT
+                COALESCE(SUM(rule_type = 'whitelist' AND target_type = 'email'), 0)
+                    AS whitelist_email,
+                COALESCE(SUM(rule_type = 'whitelist' AND target_type = 'domain'), 0)
+                    AS whitelist_domain,
+                COALESCE(SUM(rule_type = 'blacklist' AND target_type = 'email'), 0)
+                    AS blacklist_email,
+                COALESCE(SUM(rule_type = 'blacklist' AND target_type = 'domain'), 0)
+                    AS blacklist_domain
+            FROM mail_rules
+        """).fetchone()
+
+
+def get_mail_messages_for_rule_evaluation():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT id, sender_email, prediction, user_label, feedback_at
+            FROM mail_messages ORDER BY id
+        """).fetchall()
+
+
+def update_mail_message_policy(
+    message_id, policy_action, matched_rule_id, is_quarantined=None
+):
+    with closing(get_connection()) as conn, conn:
+        if is_quarantined is None:
+            conn.execute("""
+                UPDATE mail_messages
+                SET policy_action = ?, matched_rule_id = ?
+                WHERE id = ?
+            """, (policy_action, matched_rule_id, message_id))
+        else:
+            conn.execute("""
+                UPDATE mail_messages
+                SET policy_action = ?, matched_rule_id = ?, is_quarantined = ?
+                WHERE id = ?
+            """, (
+                policy_action, matched_rule_id, 1 if is_quarantined else 0,
+                message_id,
+            ))
+
+
 def save_mail_message(message):
     fields = (
         "user_id", "account_id", "provider_message_id", "thread_id",
         "message_id_header", "subject", "sender_name", "sender_email",
         "recipient_email", "snippet", "body_text", "received_at",
         "prediction", "spam_probability", "ham_probability", "confidence",
-        "is_read", "is_quarantined",
+        "is_read", "is_quarantined", "policy_action", "matched_rule_id",
     )
     values = tuple(
         (
@@ -377,6 +565,7 @@ def save_mail_message(message):
                 1 if message.get("prediction") == "spam" else 0,
             )
             if field == "is_quarantined"
+            else "model" if field == "policy_action" and message.get(field) is None
             else message.get(field)
         )
         for field in fields
@@ -423,9 +612,13 @@ def get_mail_message_for_user(message_id, user_id):
     with closing(get_connection()) as conn:
         return conn.execute("""
             SELECT mail_messages.*, email_accounts.email_address AS account_email,
-                   email_accounts.provider AS account_provider
+                   email_accounts.provider AS account_provider,
+                   mail_rules.rule_type AS matched_rule_type,
+                   mail_rules.target_type AS matched_target_type,
+                   mail_rules.target_value AS matched_target_value
             FROM mail_messages
             JOIN email_accounts ON email_accounts.id = mail_messages.account_id
+            LEFT JOIN mail_rules ON mail_rules.id = mail_messages.matched_rule_id
             WHERE mail_messages.id = ? AND mail_messages.user_id = ?
         """, (message_id, user_id)).fetchone()
 

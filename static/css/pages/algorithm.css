@@ -1,0 +1,192 @@
+/* Algorithm V2 */
+.algorithm-hero {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 220px;
+    gap: 30px;
+    padding: 35px;
+    border: 1px solid #263755;
+    border-radius: 8px;
+    background: #17243a;
+    box-shadow: 0 15px 35px rgba(15, 23, 42, 0.14);
+    color: #ffffff;
+}
+
+.algorithm-hero-content { max-width: 700px; }
+
+.algorithm-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    padding: 6px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 10px;
+}
+
+.algorithm-hero h2 { font-size: 28px; font-weight: 700; }
+.algorithm-hero p { max-width: 650px; margin-top: 10px; color: rgba(255, 255, 255, 0.72); font-size: 12px; line-height: 1.7; }
+.algorithm-tech { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 18px; }
+.algorithm-tech span { padding: 5px 8px; border-radius: 6px; background: rgba(255, 255, 255, 0.09); font-size: 9px; }
+
+.algorithm-hero-icon {
+    display: grid;
+    flex: 0 0 110px;
+    width: 110px;
+    height: 110px;
+    place-items: center;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.07);
+    color: #7dd3fc;
+    font-size: 48px;
+}
+
+.algorithm-stat {
+    padding: 17px;
+    border: 1px solid #e8edf4;
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.algorithm-stat span { display: block; color: #94a3b8; font-size: 10px; }
+.algorithm-stat strong { display: block; margin: 3px 0; font-size: 22px; }
+.algorithm-stat small { color: #94a3b8; font-size: 9px; }
+.algorithm-stat.spam strong { color: #dc2626; }
+.algorithm-stat.ham strong { color: #16a34a; }
+.algorithm-stat.accuracy strong { color: #2563eb; }
+
+.bayes-formula {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 145px;
+    gap: 17px;
+    padding: 25px;
+    border: 1px solid #e1e8f2;
+    border-radius: 8px;
+    background: #f5f8fc;
+    color: #1e293b;
+    font-family: Georgia, serif;
+    font-size: 25px;
+    font-style: italic;
+}
+
+.formula-fraction { display: flex; flex-direction: column; text-align: center; }
+.formula-fraction span:first-child { padding: 0 12px 7px; border-bottom: 2px solid #334155; }
+.formula-fraction span:last-child { padding-top: 7px; }
+
+.formula-explanation {
+    height: 100%;
+    padding: 14px;
+    border: 1px solid #edf1f5;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.formula-explanation strong { display: block; color: #2563eb; font-family: Georgia, serif; font-size: 14px; }
+.formula-explanation span { display: block; margin-top: 5px; color: #64748b; font-size: 10px; }
+
+.algorithm-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 0;
+    overflow-x: auto;
+}
+
+.algorithm-step { position: relative; flex: 0 0 120px; text-align: center; }
+.algorithm-step-number { position: absolute; top: 0; right: 18px; color: #cbd5e1; font-size: 9px; font-weight: 700; }
+
+.algorithm-step-icon {
+    display: grid;
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 10px;
+    place-items: center;
+    border-radius: 8px;
+    font-size: 21px;
+}
+
+.algorithm-step-icon.blue { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+.algorithm-step-icon.orange { color: #ea580c; background: rgba(249, 115, 22, 0.1); }
+.algorithm-step-icon.purple { color: #7c3aed; background: rgba(124, 58, 237, 0.1); }
+.algorithm-step-icon.green { color: #16a34a; background: rgba(34, 197, 94, 0.1); }
+.algorithm-step-icon.red { color: #dc2626; background: rgba(239, 68, 68, 0.1); }
+.algorithm-step strong { display: block; font-size: 11px; }
+.algorithm-step span { display: block; margin-top: 3px; color: #94a3b8; font-size: 9px; }
+.algorithm-arrow { flex: 0 0 auto; color: #cbd5e1; font-size: 20px; }
+
+.algorithm-list { display: flex; flex-direction: column; gap: 8px; }
+.algorithm-list div { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 8px; background: #f8fafc; color: #475569; font-size: 10px; }
+.algorithm-list div span { display: grid; flex: 0 0 25px; width: 25px; height: 25px; place-items: center; border-radius: 7px; background: rgba(37, 99, 235, 0.09); color: #2563eb; font-size: 9px; font-weight: 700; }
+
+.preprocess-example { margin-top: 18px; padding: 14px; border-radius: 8px; background: #f8fafc; }
+.preprocess-example > span { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 9px; }
+.preprocess-before,
+.preprocess-after { padding: 9px; border-radius: 7px; overflow-wrap: anywhere; font-family: monospace; font-size: 10px; }
+.preprocess-before { color: #dc2626; background: rgba(239, 68, 68, 0.07); }
+.preprocess-after { color: #15803d; background: rgba(34, 197, 94, 0.07); }
+.preprocess-arrow { padding: 5px; color: #94a3b8; text-align: center; }
+.algorithm-description { color: #64748b; font-size: 11px; line-height: 1.8; }
+
+.tfidf-box {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: center;
+    gap: 15px;
+    margin-top: 22px;
+}
+
+.tfidf-box > div:not(.tfidf-plus) { min-height: 150px; padding: 18px; border: 1px solid #edf1f5; border-radius: 8px; background: #f8fafc; text-align: center; }
+.tfidf-box strong { display: block; color: #2563eb; font-size: 22px; }
+.tfidf-box span { display: block; margin: 5px 0; font-size: 10px; font-weight: 600; }
+.tfidf-box small { color: #94a3b8; font-size: 9px; }
+.tfidf-plus { color: #94a3b8; font-size: 20px; }
+
+.nb-features { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 20px; }
+.nb-features > div { min-width: 0; padding: 15px; border: 1px solid #edf1f5; border-radius: 8px; background: #f8fafc; }
+.nb-features i { display: block; margin-bottom: 8px; color: #2563eb; font-size: 18px; }
+.nb-features strong { display: block; font-size: 10px; }
+.nb-features span { display: block; margin-top: 3px; color: #94a3b8; font-size: 8px; }
+
+.classification-example { padding: 20px; border: 1px solid #edf1f5; border-radius: 8px; background: #f8fafc; }
+.classification-title { display: block; margin-bottom: 12px; color: #64748b; font-size: 10px; font-weight: 600; }
+.classification-row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; padding: 10px; border-radius: 8px; font-size: 10px; }
+.classification-row.spam { color: #dc2626; background: rgba(239, 68, 68, 0.07); }
+.classification-row.ham { color: #15803d; background: rgba(34, 197, 94, 0.07); }
+.classification-result { padding: 10px; text-align: center; }
+.classification-result i { display: block; color: #94a3b8; }
+.classification-result strong { color: #dc2626; font-size: 20px; }
+.classification-example small { display: block; color: #94a3b8; font-size: 8px; text-align: center; }
+
+.algorithm-model-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.algorithm-model-grid > div { min-width: 0; padding: 13px; border: 1px solid #edf1f5; border-radius: 8px; background: #f8fafc; }
+.algorithm-model-grid span { display: block; color: #94a3b8; font-size: 9px; }
+.algorithm-model-grid strong { display: block; margin-top: 3px; overflow-wrap: anywhere; color: #334155; font-size: 11px; }
+
+@media (max-width: 900px) {
+    .algorithm-pipeline { justify-content: flex-start; }
+    .algorithm-model-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767.98px) {
+    .history-page-header { align-items: flex-start; flex-direction: column; }
+    .history-table-header { align-items: flex-start; flex-direction: column; }
+    .algorithm-hero { padding: 25px; }
+    .algorithm-hero-icon { display: none; }
+    .nb-features { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .algorithm-model-grid,
+    .tfidf-box { grid-template-columns: minmax(0, 1fr); }
+    .tfidf-plus { text-align: center; }
+    .algorithm-hero h2 { font-size: 24px; }
+    .bayes-formula { gap: 10px; padding: 18px 10px; font-size: 19px; }
+}
+

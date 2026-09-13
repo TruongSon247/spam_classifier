@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Quy tắc Email - Naïve Bayes Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="mail-rules-header">
+    <div class="page-title mb-0"><h2>Quy tắc Email</h2><p>Quản lý các địa chỉ Email và Domain được tin cậy hoặc chặn.</p></div>
+    <form method="POST" action="{{ url_for('re_evaluate_mail_rules') }}" class="rule-reevaluate-form"><button type="submit" class="btn btn-outline-primary"><i class="bi bi-arrow-repeat"></i> Đánh giá lại Email cũ</button></form>
+</div>
+
+<div class="mail-rule-stats my-4">
+    {% set cards = [('Whitelist Email', statistics['whitelist_email'], 'trusted', 'bi-envelope-check'), ('Whitelist Domain', statistics['whitelist_domain'], 'trusted', 'bi-globe2'), ('Blacklist Email', statistics['blacklist_email'], 'blocked', 'bi-envelope-x'), ('Blacklist Domain', statistics['blacklist_domain'], 'blocked', 'bi-ban')] %}
+    {% for label, value, kind, icon in cards %}<div class="mail-rule-stat {{ kind }}"><span><i class="bi {{ icon }}"></i></span><div><small>{{ label }}</small><strong>{{ value }}</strong></div></div>{% endfor %}
+</div>
+
+<section class="mail-rule-add-panel" aria-labelledby="addRuleTitle">
+    <div class="mail-rule-section-title"><div><h3 id="addRuleTitle">Thêm quy tắc</h3><p>Email chính xác được ưu tiên hơn quy tắc Domain.</p></div><i class="bi bi-shield-plus"></i></div>
+    <form method="POST" action="{{ url_for('add_mail_rule') }}" class="mail-rule-add-form">
+        <div><label for="ruleType" class="form-label">Rule Type</label><select id="ruleType" name="rule_type" class="form-select" required><option value="whitelist">Whitelist</option><option value="blacklist">Blacklist</option></select></div>
+        <div><label for="targetType" class="form-label">Target Type</label><select id="targetType" name="target_type" class="form-select" required><option value="email">Email</option><option value="domain">Domain</option></select></div>
+        <div><label for="targetValue" class="form-label">Value</label><input id="targetValue" name="target_value" class="form-control" maxlength="253" placeholder="user@example.com" required></div>
+        <div><label for="ruleDescription" class="form-label">Description</label><input id="ruleDescription" name="description" class="form-control" maxlength="500" placeholder="Ghi chú tùy chọn"></div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle"></i> Thêm quy tắc</button>
+    </form>
+</section>
+
+<section class="card mail-rule-table-card mt-4">
+    <div class="mail-rule-table-toolbar">
+        <div><h3>Danh sách quy tắc</h3><p>{{ rules|length }} kết quả phù hợp bộ lọc.</p></div>
+        <form method="GET" action="{{ url_for('admin_mail_rules') }}" class="mail-rule-filter-form">
+            <div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input type="search" name="search" class="form-control" value="{{ search }}" placeholder="Tìm Email hoặc Domain"></div>
+            <select name="rule_type" class="form-select" aria-label="Lọc loại quy tắc"><option value="all">Tất cả danh sách</option><option value="whitelist" {% if rule_filter == 'whitelist' %}selected{% endif %}>Whitelist</option><option value="blacklist" {% if rule_filter == 'blacklist' %}selected{% endif %}>Blacklist</option></select>
+            <select name="target_type" class="form-select" aria-label="Lọc đối tượng"><option value="all">Email và Domain</option><option value="email" {% if target_filter == 'email' %}selected{% endif %}>Email</option><option value="domain" {% if target_filter == 'domain' %}selected{% endif %}>Domain</option></select>
+            <select name="status" class="form-select" aria-label="Lọc trạng thái"><option value="all">Mọi trạng thái</option><option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option><option value="disabled" {% if status_filter == 'disabled' %}selected{% endif %}>Disabled</option></select>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Lọc</button>
+        </form>
+    </div>
+    {% if rules %}
+    <div class="table-responsive"><table class="table mail-rule-table align-middle mb-0"><thead><tr><th>Type</th><th>Target</th><th>Value</th><th>Description</th><th>Status</th><th>Created By</th><th>Created At</th><th class="text-end">Action</th></tr></thead><tbody>
+        {% for rule in rules %}<tr>
+            <td><span class="rule-badge {{ rule['rule_type'] }}">{{ rule['rule_type']|capitalize }}</span></td>
+            <td><span class="target-badge {{ rule['target_type'] }}"><i class="bi {% if rule['target_type'] == 'email' %}bi-envelope{% else %}bi-globe2{% endif %}"></i> {{ rule['target_type']|capitalize }}</span></td>
+            <td><strong class="rule-value">{{ rule['target_value'] }}</strong></td>
+            <td><span class="rule-description">{{ rule['description'] or '—' }}</span></td>
+            <td>{% if rule['is_active'] %}<span class="rule-status active"><i class="bi bi-check-circle-fill"></i> Active</span>{% else %}<span class="rule-status disabled"><i class="bi bi-pause-circle-fill"></i> Disabled</span>{% endif %}</td>
+            <td><div class="rule-creator"><strong>{{ rule['created_by_name'] }}</strong><small>{{ rule['created_by_email'] }}</small></div></td>
+            <td class="rule-date">{{ rule['created_at'] }}</td>
+            <td><div class="mail-rule-actions"><form method="POST" action="{{ url_for('toggle_mail_rule', id=rule['id']) }}"><button type="submit" class="btn btn-sm {% if rule['is_active'] %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{% if rule['is_active'] %}Vô hiệu hóa{% else %}Kích hoạt{% endif %}"><i class="bi {% if rule['is_active'] %}bi-pause{% else %}bi-play{% endif %}"></i></button></form><form method="POST" action="{{ url_for('remove_mail_rule', id=rule['id']) }}" class="rule-delete-form"><button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa quy tắc"><i class="bi bi-trash"></i></button></form></div></td>
+        </tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="mail-empty"><i class="bi bi-shield-check"></i><h4>Không có quy tắc phù hợp</h4><p>Thêm quy tắc mới hoặc thay đổi bộ lọc.</p></div>{% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}<script>document.querySelectorAll(".rule-delete-form").forEach(function(form){form.addEventListener("submit",function(event){if(!window.confirm("Xóa quy tắc này? Quy tắc đang được Email cũ tham chiếu sẽ chỉ bị vô hiệu hóa.")){event.preventDefault();}});});</script>{% endblock %}

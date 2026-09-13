@@ -1,0 +1,136 @@
+/* Evaluation V2 */
+.evaluation-metric-card {
+    min-height: 180px;
+    padding: 20px;
+    border: 1px solid #e8edf4;
+    border-radius: 8px;
+    background: var(--surface);
+    box-shadow: 0 5px 20px rgba(15, 23, 42, 0.04);
+}
+
+.evaluation-metric-header {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #64748b;
+    font-size: 11px;
+}
+
+.evaluation-metric-icon {
+    display: grid;
+    width: 35px;
+    height: 35px;
+    place-items: center;
+    border-radius: 8px;
+}
+
+.evaluation-metric-card.blue .evaluation-metric-icon { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+.evaluation-metric-card.green .evaluation-metric-icon { color: #16a34a; background: rgba(34, 197, 94, 0.1); }
+.evaluation-metric-card.orange .evaluation-metric-icon { color: #ea580c; background: rgba(249, 115, 22, 0.1); }
+.evaluation-metric-card.purple .evaluation-metric-icon { color: #7c3aed; background: rgba(124, 58, 237, 0.1); }
+.evaluation-metric-card h2 { margin: 17px 0 12px; font-size: 27px; font-weight: 700; }
+.evaluation-metric-card small { display: block; margin-top: 10px; color: #94a3b8; font-size: 9px; }
+
+.evaluation-matrix { margin-top: 10px; }
+.matrix-axis-title { margin-bottom: 8px; color: #94a3b8; font-size: 10px; text-align: center; }
+
+.evaluation-matrix-grid {
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr) minmax(0, 1fr);
+    gap: 7px;
+}
+
+.matrix-column-label,
+.matrix-row-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.matrix-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: 120px;
+    flex-direction: column;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.matrix-box.correct { border: 1px solid rgba(34, 197, 94, 0.13); background: rgba(34, 197, 94, 0.07); color: #15803d; }
+.matrix-box.wrong { border: 1px solid rgba(239, 68, 68, 0.12); background: rgba(239, 68, 68, 0.06); color: #dc2626; }
+.matrix-box span { font-size: 9px; }
+.matrix-box strong { margin: 4px 0; font-size: 27px; }
+.matrix-box small { opacity: 0.7; font-size: 9px; }
+
+.evaluation-summary-main {
+    margin-bottom: 13px;
+    padding: 18px;
+    border: 1px solid rgba(37, 99, 235, 0.12);
+    border-radius: 8px;
+    background: rgba(37, 99, 235, 0.07);
+    text-align: center;
+}
+
+.evaluation-summary-main span { display: block; color: #64748b; font-size: 10px; }
+.evaluation-summary-main strong { display: block; margin-top: 4px; color: #2563eb; font-size: 27px; }
+
+.evaluation-summary-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 43px;
+    gap: 16px;
+    padding: 9px 4px;
+    border-bottom: 1px solid #edf1f5;
+    color: #64748b;
+    font-size: 10px;
+}
+
+.evaluation-summary-row strong { flex: 0 0 auto; font-size: 12px; }
+
+.metric-explanation {
+    height: 100%;
+    padding: 17px;
+    border: 1px solid #edf1f5;
+    border-radius: 8px;
+    background: #f8fafc;
+}
+
+.metric-explanation-icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    margin-bottom: 11px;
+    place-items: center;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.metric-explanation-icon.blue { color: #2563eb; background: rgba(37, 99, 235, 0.1); }
+.metric-explanation-icon.green { color: #16a34a; background: rgba(34, 197, 94, 0.1); }
+.metric-explanation-icon.orange { color: #ea580c; background: rgba(249, 115, 22, 0.1); }
+.metric-explanation-icon.purple { color: #7c3aed; background: rgba(124, 58, 237, 0.1); }
+.metric-explanation h5 { font-size: 13px; font-weight: 700; }
+.metric-explanation p { margin: 0; color: #94a3b8; font-size: 10px; line-height: 1.6; }
+.evaluation-empty-state > i { font-size: 50px; }
+
+@media (max-width: 900px) {
+    .training-pipeline { justify-content: flex-start; }
+    .model-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 600px) {
+    .training-config-list,
+    .model-info-grid { grid-template-columns: minmax(0, 1fr); }
+    .model-info-wide { grid-column: span 1; }
+    .evaluation-matrix-grid { grid-template-columns: 80px minmax(0, 1fr) minmax(0, 1fr); }
+    .matrix-box { min-height: 100px; padding: 8px 4px; }
+}
+

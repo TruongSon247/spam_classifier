@@ -58,6 +58,17 @@ spam_classifier/
 │   ├── predict.py
 │   ├── evaluate.py
 │   └── compare_models.py
+├── routes/
+│   ├── auth_routes.py
+│   ├── dashboard_routes.py
+│   ├── predict_routes.py
+│   ├── dataset_routes.py
+│   ├── model_routes.py
+│   ├── history_routes.py
+│   ├── algorithm_routes.py
+│   ├── mail_routes.py
+│   ├── feedback_routes.py
+│   └── admin_routes.py
 ├── model/
 │   ├── model.pkl
 │   ├── vectorizer.pkl
@@ -68,11 +79,23 @@ spam_classifier/
 │   ├── gmail_service.py
 │   ├── imap_service.py
 │   ├── mail_service.py
-│   └── message_parser.py
+│   ├── message_parser.py
+│   └── application_service.py
 ├── static/
+│   ├── css/
+│   │   ├── style.css
+│   │   ├── tokens.css
+│   │   ├── base.css
+│   │   └── pages/
+│   └── js/
 ├── tests/
 └── temp/
 ```
+
+`app.py` dùng application factory để khởi tạo extension/database, đăng ký
+Blueprint, context processor và CLI. Các URL cùng endpoint name được giữ nguyên;
+route được chia theo chức năng trong `routes/`. `static/css/style.css` là
+entrypoint import các nhóm CSS theo đúng thứ tự cascade ban đầu.
 
 ## Cài đặt
 

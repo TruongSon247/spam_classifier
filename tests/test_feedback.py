@@ -5,13 +5,15 @@ from contextlib import closing
 
 import app as app_module
 import database.db as db
+from routes import feedback_routes
 from services.encryption_service import encrypt_value
+from services.application_service import get_model_status
 
 
 class FeedbackIntegrationTest(unittest.TestCase):
     def setUp(self):
         self.original_db_path = db.DB_PATH
-        self.original_dataset_path = app_module.FEEDBACK_DATASET_PATH
+        self.original_dataset_path = feedback_routes.FEEDBACK_DATASET_PATH
         db.DB_PATH = os.path.join(os.path.dirname(__file__), "test_feedback.db")
         self.dataset_path = os.path.join(
             os.path.dirname(__file__), "test_feedback_dataset.csv"
@@ -24,7 +26,7 @@ class FeedbackIntegrationTest(unittest.TestCase):
             writer.writerow(["label", "text"])
             writer.writerow(["ham", "Existing meeting message"])
 
-        app_module.FEEDBACK_DATASET_PATH = self.dataset_path
+        feedback_routes.FEEDBACK_DATASET_PATH = self.dataset_path
         db.init_db()
         self.admin_id = db.create_user(
             "Admin", "feedback-admin@example.com", "Admin123!", "admin"
@@ -55,7 +57,7 @@ class FeedbackIntegrationTest(unittest.TestCase):
 
     def tearDown(self):
         db.DB_PATH = self.original_db_path
-        app_module.FEEDBACK_DATASET_PATH = self.original_dataset_path
+        feedback_routes.FEEDBACK_DATASET_PATH = self.original_dataset_path
         for path in (
             os.path.join(os.path.dirname(__file__), "test_feedback.db"),
             self.dataset_path,
@@ -171,7 +173,7 @@ class FeedbackIntegrationTest(unittest.TestCase):
         after = self.read_dataset()
         self.assertEqual(len(after), len(before) + 1)
         self.assertEqual(after[-1]["label"], "ham")
-        self.assertTrue(app_module.get_model_status()["outdated"])
+        self.assertTrue(get_model_status(self.dataset_path)["outdated"])
         self.assertEqual(
             db.get_feedback_by_message(self.user_a, self.spam_message)["status"],
             "approved",

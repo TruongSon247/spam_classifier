@@ -7,11 +7,11 @@
     ],
     "unicode_support": true,
     "alpha": 1.0,
-    "total": 10000,
-    "train_size": 8000,
-    "test_size": 2000,
-    "vocabulary_size": 41430,
-    "accuracy": 0.9745,
-    "training_time": 0.9516170024871826,
-    "trained_at": "13/09/2026 15:44:40"
+    "total": 10003,
+    "train_size": 8002,
+    "test_size": 2001,
+    "vocabulary_size": 42177,
+    "accuracy": 0.9750124937531235,
+    "training_time": 0.9641683101654053,
+    "trained_at": "13/09/2026 17:04:38"
 }

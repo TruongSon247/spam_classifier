@@ -5,11 +5,17 @@ from contextlib import closing
 from unittest.mock import Mock, patch
 
 from cryptography.fernet import Fernet
+from googleapiclient.errors import HttpError
+from requests.exceptions import ProxyError
 
 import database.db as db
 from app import app
 from services.encryption_service import decrypt_value, encrypt_value
-from services.gmail_service import exchange_callback_code, parse_gmail_message
+from services.gmail_service import (
+    exchange_callback_code,
+    fetch_recent_messages,
+    parse_gmail_message,
+)
 from services.imap_service import IMAPConnectionError
 from services.mail_service import sync_email_account
 
@@ -113,7 +119,7 @@ class MailboxIntegrationTest(unittest.TestCase):
         )
         self.assertNotIn("Nội bộ công ty".encode(), foreign_detail.data)
 
-        with patch("app.sync_email_account") as sync_mock:
+        with patch("routes.mail_routes.sync_email_account") as sync_mock:
             self.client.post(f"/mail/sync/{self.account_b}")
             sync_mock.assert_not_called()
         self.client.post(f"/mail/disconnect/{self.account_b}")
@@ -138,7 +144,7 @@ class MailboxIntegrationTest(unittest.TestCase):
             "app_password": "secret-app-password",
         }
         with patch(
-            "app.test_imap_connection",
+            "routes.mail_routes.test_imap_connection",
             side_effect=IMAPConnectionError("Sai App Password."),
         ):
             response = self.client.post(
@@ -147,7 +153,7 @@ class MailboxIntegrationTest(unittest.TestCase):
         self.assertIn("Sai App Password".encode(), response.data)
         self.assertEqual(len(db.get_email_accounts_by_user(self.user_a)), 1)
 
-        with patch("app.test_imap_connection", return_value=True):
+        with patch("routes.mail_routes.test_imap_connection", return_value=True):
             response = self.client.post(
                 "/mail/connect/imap", data=form, follow_redirects=True
             )
@@ -180,13 +186,85 @@ class MailboxIntegrationTest(unittest.TestCase):
             "ham_probability": 0.9,
             "confidence": 0.9,
         }]
-        with patch("services.mail_service.fetch_recent_imap_messages", return_value=email_data), patch(
+        with patch(
+            "services.mail_service.fetch_recent_imap_messages",
+            return_value=email_data,
+        ) as fetch_mock, patch(
             "services.mail_service.predict_batch_emails", return_value=prediction
         ):
-            first = sync_email_account(account)
+            first = sync_email_account(account, max_results=200)
             second = sync_email_account(account)
-        self.assertEqual(first, {"new": 1, "existing": 0, "total": 1})
-        self.assertEqual(second, {"new": 0, "existing": 1, "total": 1})
+        self.assertEqual(
+            first,
+            {"new": 1, "existing": 0, "total": 1, "rate_limited": False},
+        )
+        self.assertEqual(
+            second,
+            {"new": 0, "existing": 1, "total": 1, "rate_limited": False},
+        )
+        self.assertEqual(fetch_mock.call_args_list[0].kwargs["max_results"], 200)
+        self.assertEqual(fetch_mock.call_args_list[1].kwargs["max_results"], 50)
+
+    def test_gmail_skips_existing_messages_and_handles_rate_limit(self):
+        service = Mock()
+        service.users.return_value.messages.return_value.list.return_value.execute.return_value = {
+            "messages": [{"id": "known"}, {"id": "new"}, {"id": "limited"}]
+        }
+        response = Mock(status=403, reason="Forbidden")
+        quota_error = HttpError(
+            response,
+            b'{"error":{"errors":[{"reason":"rateLimitExceeded"}]}}',
+        )
+        with patch(
+            "services.gmail_service.build_gmail_service", return_value=service
+        ), patch(
+            "services.gmail_service.fetch_message_detail",
+            side_effect=[{"provider_message_id": "new"}, quota_error],
+        ) as detail_mock:
+            result = fetch_recent_messages(
+                {"id": self.account_a},
+                max_results=300,
+                excluded_ids={"known"},
+            )
+        self.assertEqual([item["provider_message_id"] for item in result], ["new"])
+        self.assertEqual(result.skipped_existing, 1)
+        self.assertTrue(result.rate_limited)
+        self.assertEqual(detail_mock.call_count, 2)
+        list_call = service.users.return_value.messages.return_value.list.call_args
+        self.assertEqual(list_call.kwargs["maxResults"], 300)
+
+    def test_sync_limit_is_selected_and_validated(self):
+        self.login_a()
+        mailbox = self.client.get("/mail")
+        for limit in (50, 100, 200, 300, 500):
+            self.assertIn(f'value="{limit}"'.encode(), mailbox.data)
+
+        ready_model = {"trained": True, "outdated": False, "message": "ready"}
+        with patch(
+            "routes.mail_routes.get_model_status", return_value=ready_model
+        ), patch(
+            "routes.mail_routes.sync_email_account",
+            return_value={"new": 0, "existing": 0, "total": 0},
+        ) as sync_mock:
+            response = self.client.post(
+                f"/mail/sync/{self.account_a}",
+                data={"max_results": "300"},
+                follow_redirects=True,
+            )
+        self.assertEqual(response.status_code, 200)
+        sync_mock.assert_called_once()
+        self.assertEqual(sync_mock.call_args.kwargs["max_results"], 300)
+
+        with patch(
+            "routes.mail_routes.get_model_status", return_value=ready_model
+        ), patch("routes.mail_routes.sync_email_account") as sync_mock:
+            invalid = self.client.post(
+                f"/mail/sync/{self.account_a}",
+                data={"max_results": "999"},
+                follow_redirects=True,
+            )
+        sync_mock.assert_not_called()
+        self.assertIn("không hợp lệ".encode(), invalid.data)
 
     def test_gmail_html_fallback_is_plain_text(self):
         html_body = base64.urlsafe_b64encode(
@@ -212,7 +290,7 @@ class MailboxIntegrationTest(unittest.TestCase):
     def test_google_oauth_state_and_encrypted_storage(self):
         self.login_a()
         with patch(
-            "app.get_authorization_url",
+            "routes.mail_routes.get_authorization_url",
             return_value=(
                 "https://accounts.google.test/auth",
                 "secure-state",
@@ -236,10 +314,10 @@ class MailboxIntegrationTest(unittest.TestCase):
             flask_session["google_oauth_state"] = "secure-state"
             flask_session["google_oauth_user_id"] = self.user_a
             flask_session["google_oauth_code_verifier"] = "pkce-verifier"
-        with patch("app.exchange_callback_code", return_value=Mock()), patch(
-            "app.get_profile_from_credentials",
+        with patch("routes.mail_routes.exchange_callback_code", return_value=Mock()), patch(
+            "routes.mail_routes.get_profile_from_credentials",
             return_value={"emailAddress": "oauth@gmail.com"},
-        ), patch("app.credentials_to_json", return_value="serialized-token"):
+        ), patch("routes.mail_routes.credentials_to_json", return_value="serialized-token"):
             valid = self.client.get(
                 "/mail/google/callback?state=secure-state&code=test",
                 follow_redirects=True,
@@ -267,6 +345,23 @@ class MailboxIntegrationTest(unittest.TestCase):
         flow.fetch_token.assert_called_once_with(code="authorization-code")
         self.assertIs(credentials, flow.credentials)
 
+    def test_google_callback_reports_network_error_accurately(self):
+        self.login_a()
+        with self.client.session_transaction() as flask_session:
+            flask_session["google_oauth_state"] = "network-state"
+            flask_session["google_oauth_user_id"] = self.user_a
+            flask_session["google_oauth_code_verifier"] = "pkce-verifier"
+        with patch(
+            "routes.mail_routes.exchange_callback_code",
+            side_effect=ProxyError("blocked proxy"),
+        ):
+            response = self.client.get(
+                "/mail/google/callback?state=network-state&code=test",
+                follow_redirects=True,
+            )
+        self.assertIn("kết nối tới máy chủ Google".encode(), response.data)
+        self.assertNotIn("Client Secret".encode(), response.data)
+
     def test_model_status_controls_sync_and_low_confidence_filter(self):
         low_id = self._save_message(
             self.user_a, self.account_a, "a-low", "Cần kiểm tra", "ham", 0.55
@@ -278,9 +373,9 @@ class MailboxIntegrationTest(unittest.TestCase):
         self.assertNotIn("Khuyến mãi đặc biệt".encode(), low_page.data)
 
         with patch(
-            "app.get_model_status",
+            "routes.mail_routes.get_model_status",
             return_value={"trained": False, "outdated": True, "message": "missing"},
-        ), patch("app.sync_email_account") as sync_mock:
+        ), patch("routes.mail_routes.sync_email_account") as sync_mock:
             missing = self.client.post(
                 f"/mail/sync/{self.account_a}", follow_redirects=True
             )
@@ -288,10 +383,10 @@ class MailboxIntegrationTest(unittest.TestCase):
         self.assertIn("chưa được huấn luyện".encode(), missing.data)
 
         with patch(
-            "app.get_model_status",
+            "routes.mail_routes.get_model_status",
             return_value={"trained": True, "outdated": True, "message": "old"},
         ), patch(
-            "app.sync_email_account",
+            "routes.mail_routes.sync_email_account",
             return_value={"new": 0, "existing": 1, "total": 1},
         ) as sync_mock:
             outdated = self.client.post(

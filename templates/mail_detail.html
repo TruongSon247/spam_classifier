@@ -16,6 +16,14 @@
         <div class="mail-detail-metric"><div><span>SPAM Probability</span><strong class="text-danger">{{ '%.2f'|format(message['spam_probability'] * 100) }}%</strong></div><div class="progress"><div class="progress-bar bg-danger" style="width: {{ message['spam_probability'] * 100 }}%"></div></div></div>
         <div class="mail-detail-metric"><div><span>HAM Probability</span><strong class="text-success">{{ '%.2f'|format(message['ham_probability'] * 100) }}%</strong></div><div class="progress"><div class="progress-bar bg-success" style="width: {{ message['ham_probability'] * 100 }}%"></div></div></div>
         <div class="mail-confidence-detail"><span>Confidence</span><strong>{{ '%.2f'|format(message['confidence'] * 100) }}%</strong>{% if message['confidence'] < 0.65 %}<small><i class="bi bi-exclamation-triangle"></i> Độ tin cậy thấp</small>{% endif %}</div>
+        <div class="mail-policy-panel">
+            <span>QUY TẮC HỆ THỐNG</span>
+            {% if message['matched_rule_id'] %}
+            <dl><div><dt>Rule</dt><dd><span class="rule-badge {{ message['matched_rule_type'] }}">{{ message['matched_rule_type']|capitalize }}</span></dd></div><div><dt>Target</dt><dd>{{ message['matched_target_type']|capitalize }}</dd></div><div><dt>Value</dt><dd>{{ message['matched_target_value'] }}</dd></div><div><dt>Policy</dt><dd><span class="policy-badge {{ message['policy_action'] }}">{{ message['policy_action']|capitalize }}</span></dd></div></dl>
+            {% else %}
+            <p>Không có rule phù hợp.<small>Kết quả vận hành dựa trên Naïve Bayes.</small></p>
+            {% endif %}
+        </div>
         <div class="mail-feedback-panel">
             <span>PHẢN HỒI NGƯỜI DÙNG</span>
             {% if message['user_label'] %}

@@ -25,7 +25,13 @@
             <div class="mail-provider-icon {{ account['provider'] }}"><i class="bi {% if account['provider'] == 'gmail' %}bi-google{% else %}bi-hdd-network{% endif %}"></i></div>
             <div class="mail-account-info"><span class="provider-badge {{ account['provider'] }}">{{ account['provider']|upper }}</span><strong>{{ account['display_name'] or account['email_address'] }}</strong><small>{{ account['email_address'] }}</small><p>Đồng bộ gần nhất: {{ account['last_sync_at'] or 'Chưa đồng bộ' }}</p></div>
             <div class="mail-account-actions">
-                <form method="POST" action="{{ url_for('sync_mail_account', account_id=account['id']) }}"><button type="submit" class="btn btn-primary btn-sm mail-sync-button" {% if not model_status.trained %}disabled{% endif %}><i class="bi bi-arrow-repeat"></i> Đồng bộ</button></form>
+                <form method="POST" action="{{ url_for('sync_mail_account', account_id=account['id']) }}" class="mail-sync-form">
+                    <label class="visually-hidden" for="syncLimit{{ account['id'] }}">Số Email cần đồng bộ</label>
+                    <select class="form-select form-select-sm mail-sync-limit" id="syncLimit{{ account['id'] }}" name="max_results" title="Số Email tối đa mỗi lần đồng bộ" {% if not model_status.trained %}disabled{% endif %}>
+                        {% for limit in sync_limit_options %}<option value="{{ limit }}">{{ limit }} thư</option>{% endfor %}
+                    </select>
+                    <button type="submit" class="btn btn-primary btn-sm mail-sync-button" {% if not model_status.trained %}disabled{% endif %}><i class="bi bi-arrow-repeat"></i> Đồng bộ</button>
+                </form>
                 <form method="POST" action="{{ url_for('disconnect_mail_account', account_id=account['id']) }}" class="mail-disconnect-form"><button type="submit" class="btn btn-outline-danger btn-sm" title="Ngắt kết nối"><i class="bi bi-link-45deg"></i> Ngắt</button></form>
             </div>
         </article>
@@ -61,7 +67,7 @@
         <tbody>{% for item in messages %}<tr>
             <td><div class="mail-sender"><strong>{{ item['sender_name'] or 'Không rõ tên' }}</strong><span>{{ item['sender_email'] or 'Không rõ Email' }}</span></div></td>
             <td><a class="mail-subject" href="{{ url_for('mail_message_detail', message_id=item['id']) }}"><strong>{{ item['subject'] or '(Không có tiêu đề)' }}</strong><span>{{ item['snippet'] or item['body_text'] }}</span></a></td>
-            <td><div class="feedback-badge-stack"><span class="mail-prediction {{ item['prediction'] }}">Model: {{ item['prediction']|upper }}</span>{% if item['is_quarantined'] %}<span class="feedback-badge quarantine">Quarantine</span>{% endif %}{% if item['user_label'] %}<span class="feedback-badge user-label">User: {{ item['user_label']|upper }}</span>{% endif %}</div></td>
+            <td><div class="feedback-badge-stack"><span class="mail-prediction {{ item['prediction'] }}">Model: {{ item['prediction']|upper }}</span>{% if item['policy_action'] == 'trusted' %}<span class="policy-badge trusted">Trusted</span>{% elif item['policy_action'] == 'blocked' %}<span class="policy-badge blocked">Blocked</span>{% endif %}{% if item['is_quarantined'] %}<span class="feedback-badge quarantine">Quarantine</span>{% endif %}{% if item['user_label'] %}<span class="feedback-badge user-label">User: {{ item['user_label']|upper }}</span>{% endif %}</div></td>
             <td><div class="mail-probability"><span class="text-danger">{{ '%.1f'|format(item['spam_probability'] * 100) }}%</span><span class="text-success">{{ '%.1f'|format(item['ham_probability'] * 100) }}%</span></div></td>
             <td>{% if item['confidence'] < 0.65 %}<span class="confidence-badge low">Thấp {{ '%.1f'|format(item['confidence'] * 100) }}%</span>{% else %}<span class="confidence-badge">{{ '%.1f'|format(item['confidence'] * 100) }}%</span>{% endif %}</td>
             {% set mail_date = item['received_at'] or item['synced_at'] %}<td class="mail-date">{{ mail_date[:16]|replace('T', ' ') }}</td>

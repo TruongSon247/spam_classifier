@@ -112,6 +112,13 @@
                 <i class="bi bi-bar-chart-line"></i>
                 <span>So sánh thuật toán</span>
             </a>
+            <a
+                href="{{ url_for('admin_mail_rules') }}"
+                class="sidebar-link {% if request.endpoint in ['admin_mail_rules', 'add_mail_rule', 'toggle_mail_rule', 'remove_mail_rule', 're_evaluate_mail_rules'] %}active{% endif %}"
+            >
+                <i class="bi bi-shield-lock"></i>
+                <span>Quy tắc Email</span>
+            </a>
             {% endif %}
             <a
                 href="{{ url_for('history') }}"
@@ -132,7 +139,7 @@
                 href="{{ url_for('admin_feedback') }}"
                 class="sidebar-link {% if request.endpoint in ['admin_feedback', 'approve_mail_feedback', 'reject_mail_feedback'] %}active{% endif %}"
             >
-                <i class="bi bi-chat-square-check"></i>
+                <i class="bi bi-clipboard-check"></i>
                 <span>Phản hồi mô hình</span>
             </a>
             <a

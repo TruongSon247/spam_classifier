@@ -1,0 +1,63 @@
+.mail-rules-header,
+.mail-rule-section-title,
+.mail-rule-table-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.mail-rule-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.mail-rule-stat { display: flex; min-width: 0; align-items: center; gap: 12px; padding: 17px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.mail-rule-stat > span { display: grid; flex: 0 0 42px; width: 42px; height: 42px; place-items: center; border-radius: 8px; font-size: 18px; }
+.mail-rule-stat.trusted > span { color: #047857; background: #ecfdf5; }
+.mail-rule-stat.blocked > span { color: #dc2626; background: #fff1f2; }
+.mail-rule-stat small, .mail-rule-stat strong { display: block; }
+.mail-rule-stat small { color: #64748b; font-size: 9px; }
+.mail-rule-stat strong { margin-top: 2px; color: #0f172a; font-size: 21px; }
+.mail-rule-add-panel { padding: 20px 22px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.mail-rule-section-title h3, .mail-rule-table-toolbar h3 { margin: 0; font-size: 15px; }
+.mail-rule-section-title p, .mail-rule-table-toolbar p { margin: 4px 0 0; color: #94a3b8; font-size: 9px; }
+.mail-rule-section-title > i { color: #2563eb; font-size: 23px; }
+.mail-rule-add-form { display: grid; grid-template-columns: 150px 140px minmax(190px, 1fr) minmax(190px, 1fr) auto; align-items: end; gap: 12px; margin-top: 18px; }
+.mail-rule-add-form .form-label { font-size: 10px; font-weight: 600; }
+.mail-rule-add-form .btn { min-height: 43px; white-space: nowrap; }
+.mail-rule-table-card { overflow: hidden; }
+.mail-rule-table-toolbar { align-items: flex-end; padding: 20px 22px; border-bottom: 1px solid var(--border); }
+.mail-rule-filter-form { display: grid; grid-template-columns: minmax(180px, 1fr) 140px 145px 135px auto; gap: 8px; width: min(850px, 100%); }
+.mail-rule-filter-form .form-control, .mail-rule-filter-form .form-select, .mail-rule-filter-form .btn { min-height: 38px; font-size: 9px; }
+.mail-rule-filter-form .input-group-text { background: #fff; color: #94a3b8; }
+.mail-rule-table { min-width: 1120px; table-layout: fixed; }
+.mail-rule-table th:nth-child(1) { width: 90px; }
+.mail-rule-table th:nth-child(2) { width: 90px; }
+.mail-rule-table th:nth-child(3) { width: 190px; }
+.mail-rule-table th:nth-child(4) { width: 220px; }
+.mail-rule-table th:nth-child(5) { width: 90px; }
+.mail-rule-table th:nth-child(6) { width: 160px; }
+.mail-rule-table th:nth-child(7) { width: 145px; }
+.mail-rule-table th:nth-child(8) { width: 90px; }
+.mail-rule-table td { padding: 13px; color: #64748b; font-size: 9px; }
+.rule-badge, .target-badge, .rule-status { display: inline-flex; align-items: center; gap: 5px; padding: 5px 7px; border-radius: 6px; font-size: 8px; font-weight: 700; white-space: nowrap; }
+.rule-badge.whitelist { color: #047857; background: #ecfdf5; }
+.rule-badge.blacklist { color: #dc2626; background: #fff1f2; }
+.target-badge.email { color: #1d4ed8; background: #eff6ff; }
+.target-badge.domain { color: #7e22ce; background: #faf5ff; }
+.rule-status.active { color: #047857; background: #ecfdf5; }
+.rule-status.disabled { color: #64748b; background: #f1f5f9; }
+.rule-value { display: block; overflow: hidden; color: #334155; text-overflow: ellipsis; white-space: nowrap; }
+.rule-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.rule-creator strong, .rule-creator small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rule-creator strong { color: #334155; }
+.rule-creator small { margin-top: 3px; color: #94a3b8; font-size: 8px; }
+.rule-date { white-space: nowrap; }
+.mail-rule-actions { display: flex; justify-content: flex-end; gap: 6px; }
+.mail-rule-actions .btn { display: grid; width: 31px; height: 31px; padding: 0; place-items: center; }
+@media (max-width: 1199.98px) {
+    .mail-rule-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mail-rule-add-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .mail-rule-add-form .btn { width: 100%; }
+    .mail-rule-table-toolbar { align-items: stretch; flex-direction: column; }
+    .mail-rule-filter-form { width: 100%; }
+}
+@media (max-width: 767.98px) {
+    .mail-rules-header { align-items: stretch; flex-direction: column; }
+    .rule-reevaluate-form .btn { width: 100%; }
+    .mail-rule-filter-form { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 480px) {
+    .mail-rule-stats, .mail-rule-add-form { grid-template-columns: minmax(0, 1fr); }
+}
