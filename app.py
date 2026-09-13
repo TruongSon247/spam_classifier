@@ -1,51 +1,97 @@
 from flask import (
     Flask,
+    abort,
     flash,
     redirect,
     render_template,
     request,
     send_from_directory,
+    session,
     url_for
 )
+from flask_login import current_user, login_required, login_user, logout_user
+from werkzeug.security import check_password_hash
+import click
+import csv
+import getpass
+import hashlib
 import json
 import pandas as pd
-import sqlite3
 import os
+import unicodedata
 import uuid
+from dotenv import load_dotenv
 
+load_dotenv()
+
+from auth import User, admin_required, login_manager
+from database.db import (
+    count_active_admins,
+    create_user,
+    create_email_account,
+    disconnect_email_account,
+    get_email_account_for_user,
+    get_email_accounts_by_user,
+    get_all_users,
+    get_connection,
+    get_user_by_email,
+    get_user_by_id,
+    get_mail_message_for_user,
+    get_mail_messages_by_user,
+    get_mail_statistics,
+    count_mail_messages_by_user,
+    count_quarantined_messages_by_user,
+    get_feedback_by_message,
+    get_feedback_statistics,
+    get_pending_training_feedback,
+    get_quarantine_statistics,
+    get_quarantined_messages_by_user,
+    get_training_feedback_for_review,
+    init_db,
+    approve_feedback,
+    is_training_text_hash_approved,
+    reject_feedback,
+    save_mail_feedback,
+    save_prediction as save_prediction_to_db,
+    set_user_active,
+    update_last_login,
+    update_user_role,
+)
 from ml.predict import predict_batch_emails, predict_email
 from ml.compare_models import compare_models
 from ml.train import train_model
 from ml.evaluate import evaluate_model
+from services.encryption_service import (
+    CredentialConfigurationError,
+    encrypt_value,
+)
+from services.gmail_service import (
+    GmailConfigurationError,
+    credentials_to_json,
+    exchange_callback_code,
+    get_authorization_url,
+    get_profile_from_credentials,
+    revoke_gmail_credentials,
+)
+from services.imap_service import IMAPConnectionError, test_imap_connection
+from services.mail_service import ModelUnavailableError, sync_email_account
 
 
-def init_db():
+FEEDBACK_DATASET_PATH = "dataset/spam_dataset.csv"
 
-    os.makedirs("database", exist_ok=True)
 
-    conn = sqlite3.connect("database/database.db")
+def normalize_training_text(value):
+    return " ".join(unicodedata.normalize("NFKC", value or "").split()).strip()
 
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS predictions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            subject TEXT,
-            message TEXT NOT NULL,
-            prediction TEXT NOT NULL,
-            spam_probability REAL,
-            ham_probability REAL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-
-    conn.commit()
-    conn.close()
-
+def feedback_training_text(feedback):
+    return normalize_training_text(
+        " ".join(filter(None, [feedback["subject"], feedback["body_text"] or feedback["snippet"]]))
+    )
 
 def get_model_status():
 
-    dataset_path = "dataset/spam_dataset.csv"
+    dataset_path = FEEDBACK_DATASET_PATH
     preprocessing_path = "ml/preprocessing.py"
     train_path = "ml/train.py"
     model_path = "model/model.pkl"
@@ -109,11 +155,14 @@ def get_model_info():
         return None
 
 
-def get_prediction_statistics():
-
-    conn = sqlite3.connect("database/database.db")
-    conn.row_factory = sqlite3.Row
+def get_prediction_statistics(user_id=None):
+    conn = get_connection()
     cursor = conn.cursor()
+    where_clause = ""
+    params = ()
+    if user_id is not None:
+        where_clause = "WHERE user_id = ?"
+        params = (user_id,)
 
     cursor.execute("""
         SELECT
@@ -123,15 +172,17 @@ def get_prediction_statistics():
             COALESCE(SUM(CASE WHEN prediction = 'ham' THEN 1 ELSE 0 END), 0)
                 AS ham_predictions
         FROM predictions
-    """)
+        {where_clause}
+    """.format(where_clause=where_clause), params)
     counts = cursor.fetchone()
 
     cursor.execute("""
         SELECT *
         FROM predictions
+        {where_clause}
         ORDER BY id DESC
         LIMIT 5
-    """)
+    """.format(where_clause=where_clause), params)
     recent_predictions = cursor.fetchall()
 
     conn.close()
@@ -143,37 +194,59 @@ def get_prediction_statistics():
         "recent_predictions": recent_predictions
     }
 
-def save_prediction(subject, message, result):
-
-    conn = sqlite3.connect("database/database.db")
-
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO predictions (
-            subject,
-            message,
-            prediction,
-            spam_probability,
-            ham_probability
-        )
-        VALUES (?, ?, ?, ?, ?)
-    """, (
+def save_prediction(subject, message, result, user_id):
+    save_prediction_to_db(
         subject,
         message,
         result["prediction"],
         result["spam_probability"],
-        result["ham_probability"]
-    ))
-
-    conn.commit()
-    conn.close()
+        result["ham_probability"],
+        user_id,
+    )
 
 
 app = Flask(__name__)
-app.secret_key = "spam-classifier-secret-key"
+app.config["SECRET_KEY"] = os.environ.get(
+    "FLASK_SECRET_KEY",
+    os.environ.get(
+        "SECRET_KEY",
+        "dev-change-this-secret-key",
+    ),
+)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+)
+login_manager.init_app(app)
 
 init_db()
+
+
+@app.cli.command("create-admin")
+def create_admin_command():
+    """Create the first administrator without storing a plain-text password."""
+    name = click.prompt("Tên Admin").strip()
+    email = click.prompt("Email").strip().lower()
+    click.echo(
+        "Lưu ý: mật khẩu sẽ không hiện ký tự hoặc dấu * khi nhập. "
+        "Hãy gõ bình thường rồi nhấn Enter."
+    )
+    try:
+        password = getpass.getpass("Mật khẩu (tối thiểu 8 ký tự): ")
+        confirmation = getpass.getpass("Nhập lại mật khẩu: ")
+    except (EOFError, KeyboardInterrupt) as error:
+        raise click.ClickException(
+            "Không thể đọc mật khẩu. Hãy chạy lệnh trong Terminal PowerShell "
+            "của VS Code, không chạy trong Output hoặc Debug Console."
+        ) from error
+
+    if password != confirmation:
+        raise click.ClickException("Mật khẩu xác nhận không khớp.")
+    try:
+        create_user(name, email, password, "admin")
+    except ValueError as error:
+        raise click.ClickException(str(error)) from error
+    click.echo(f"Đã tạo tài khoản Admin: {email}")
 
 
 @app.context_processor
@@ -184,7 +257,441 @@ def inject_global_data():
     }
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+
+    email = ""
+    if request.method == "POST":
+        email = request.form.get("email", "").strip().lower()
+        password = request.form.get("password", "")
+        remember = request.form.get("remember") == "on"
+        row = get_user_by_email(email)
+
+        if row and not bool(row["is_active"]):
+            flash("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ Admin.", "danger")
+        elif not row or not check_password_hash(row["password_hash"], password):
+            flash("Email hoặc mật khẩu không chính xác.", "danger")
+        else:
+            login_user(User(row), remember=remember)
+            update_last_login(row["id"])
+            next_url = request.args.get("next", "")
+            if not next_url.startswith("/") or next_url.startswith("//"):
+                next_url = url_for("index")
+            return redirect(next_url)
+
+    return render_template("login.html", email=email)
+
+
+@app.route("/logout", methods=["POST"])
+@login_required
+def logout():
+    logout_user()
+    flash("Bạn đã đăng xuất khỏi hệ thống.", "success")
+    return redirect(url_for("login"))
+
+
+@app.route("/mail")
+@login_required
+def mail():
+    user_id = int(current_user.id)
+    search = request.args.get("search", "").strip()
+    selected_filter = request.args.get("filter", "all").strip().lower()
+    if selected_filter not in {"all", "spam", "ham", "low"}:
+        selected_filter = "all"
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = 20
+    total_messages = count_mail_messages_by_user(
+        user_id, selected_filter, search
+    )
+    total_pages = max(1, (total_messages + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    messages = get_mail_messages_by_user(
+        user_id, selected_filter, search, page, per_page
+    )
+    return render_template(
+        "mail.html",
+        accounts=get_email_accounts_by_user(user_id),
+        messages=messages,
+        statistics=get_mail_statistics(user_id),
+        search=search,
+        selected_filter=selected_filter,
+        page=page,
+        total_pages=total_pages,
+        model_status=get_model_status(),
+    )
+
+
+@app.route("/mail/message/<int:message_id>")
+@login_required
+def mail_message_detail(message_id):
+    message = get_mail_message_for_user(message_id, int(current_user.id))
+    if not message:
+        flash("Không tìm thấy Email hoặc bạn không có quyền truy cập.", "danger")
+        return redirect(url_for("mail"))
+    return render_template(
+        "mail_detail.html",
+        message=message,
+        feedback=get_feedback_by_message(int(current_user.id), message_id),
+    )
+
+
+@app.route("/mail/message/<int:message_id>/feedback", methods=["POST"])
+@login_required
+def submit_mail_feedback(message_id):
+    if not get_mail_message_for_user(message_id, int(current_user.id)):
+        abort(403)
+    try:
+        save_mail_feedback(
+            int(current_user.id),
+            message_id,
+            request.form.get("label", ""),
+            request.form.get("allow_training") == "1",
+        )
+        flash("Đã ghi nhận phản hồi của bạn.", "success")
+    except ValueError as error:
+        flash(str(error), "danger")
+    return redirect(url_for("mail_message_detail", message_id=message_id))
+
+
+@app.route("/quarantine")
+@login_required
+def quarantine():
+    user_id = int(current_user.id)
+    search = request.args.get("search", "").strip()
+    selected_filter = request.args.get("filter", "all").strip().lower()
+    if selected_filter not in {
+        "all", "unchecked", "confirmed_spam", "false_positive", "low"
+    }:
+        selected_filter = "all"
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = 20
+    total = count_quarantined_messages_by_user(
+        user_id, selected_filter, search
+    )
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    return render_template(
+        "quarantine.html",
+        messages=get_quarantined_messages_by_user(
+            user_id, selected_filter, search, page, per_page
+        ),
+        statistics=get_quarantine_statistics(user_id),
+        search=search,
+        selected_filter=selected_filter,
+        page=page,
+        total_pages=total_pages,
+    )
+
+
+@app.route("/admin/feedback")
+@admin_required
+def admin_feedback():
+    return render_template(
+        "admin_feedback.html",
+        feedback_items=get_pending_training_feedback(),
+        statistics=get_feedback_statistics(),
+    )
+
+
+@app.route("/admin/feedback/<int:feedback_id>/approve", methods=["POST"])
+@admin_required
+def approve_mail_feedback(feedback_id):
+    feedback = get_training_feedback_for_review(feedback_id)
+    if not feedback:
+        abort(404)
+
+    training_text = feedback_training_text(feedback)
+    if not training_text:
+        flash("Nội dung Email rỗng, không thể thêm vào Dataset.", "danger")
+        return redirect(url_for("admin_feedback"))
+
+    text_hash = hashlib.sha256(training_text.encode("utf-8")).hexdigest()
+    duplicate = is_training_text_hash_approved(text_hash)
+    try:
+        dataset = pd.read_csv(FEEDBACK_DATASET_PATH)
+        if not {"label", "text"}.issubset(dataset.columns):
+            raise ValueError("Dataset phải có hai cột label và text.")
+        if not duplicate:
+            duplicate = any(
+                normalize_training_text(str(value)) == training_text
+                for value in dataset["text"].dropna()
+            )
+        if not duplicate:
+            with open(
+                FEEDBACK_DATASET_PATH, "a+", encoding="utf-8", newline=""
+            ) as file:
+                file.seek(0)
+                existing_content = file.read()
+                if existing_content and not existing_content.endswith(("\n", "\r")):
+                    file.write("\n")
+                csv.writer(file).writerow(
+                    [feedback["corrected_label"], training_text]
+                )
+        if not approve_feedback(feedback_id, int(current_user.id), text_hash):
+            raise ValueError("Phản hồi đã được xử lý trước đó.")
+    except (OSError, pd.errors.ParserError, ValueError) as error:
+        flash(f"Không thể duyệt phản hồi: {error}", "danger")
+        return redirect(url_for("admin_feedback"))
+
+    if duplicate:
+        flash("Đã duyệt; nội dung trùng nên không append lại Dataset.", "info")
+    else:
+        flash(
+            "Đã duyệt và bổ sung Email vào Dataset. Model cần train lại.",
+            "success",
+        )
+    return redirect(url_for("admin_feedback"))
+
+
+@app.route("/admin/feedback/<int:feedback_id>/reject", methods=["POST"])
+@admin_required
+def reject_mail_feedback(feedback_id):
+    if not reject_feedback(feedback_id, int(current_user.id)):
+        abort(404)
+    flash("Đã từ chối phản hồi. Dataset không thay đổi.", "info")
+    return redirect(url_for("admin_feedback"))
+
+
+@app.route("/mail/sync/<int:account_id>", methods=["POST"])
+@login_required
+def sync_mail_account(account_id):
+    account = get_email_account_for_user(account_id, int(current_user.id))
+    if not account:
+        flash("Không tìm thấy tài khoản Email hoặc bạn không có quyền.", "danger")
+        return redirect(url_for("mail"))
+
+    model_status = get_model_status()
+    if not model_status["trained"]:
+        flash("Mô hình chưa được huấn luyện. Không thể phân loại Email.", "danger")
+        return redirect(url_for("mail"))
+    if model_status["outdated"]:
+        flash("Model hiện tại cần được huấn luyện lại.", "warning")
+
+    try:
+        result = sync_email_account(account)
+        if result["new"] == 0:
+            flash("Không có Email mới.", "info")
+        else:
+            flash(
+                f"Đồng bộ thành công: {result['new']} Email mới, "
+                f"{result['existing']} Email đã tồn tại.",
+                "success",
+            )
+    except (CredentialConfigurationError, GmailConfigurationError,
+            IMAPConnectionError, ModelUnavailableError, ValueError) as error:
+        flash(str(error), "danger")
+    except Exception as error:
+        print("Mailbox sync error:", type(error).__name__)
+        flash("Không thể đồng bộ hộp thư. Vui lòng thử lại sau.", "danger")
+    return redirect(url_for("mail"))
+
+
+@app.route("/mail/disconnect/<int:account_id>", methods=["POST"])
+@login_required
+def disconnect_mail_account(account_id):
+    user_id = int(current_user.id)
+    account = get_email_account_for_user(account_id, user_id)
+    if not account:
+        flash("Không tìm thấy tài khoản Email hoặc bạn không có quyền.", "danger")
+        return redirect(url_for("mail"))
+    if account["provider"] == "gmail":
+        revoke_gmail_credentials(account)
+    disconnect_email_account(account_id, user_id)
+    flash("Đã ngắt kết nối. Email đã đồng bộ vẫn được giữ lại.", "success")
+    return redirect(url_for("mail"))
+
+
+@app.route("/mail/connect/imap", methods=["GET", "POST"])
+@login_required
+def connect_imap():
+    values = {
+        "email_address": "",
+        "imap_host": "",
+        "imap_port": "993",
+        "imap_username": "",
+        "display_name": "",
+    }
+    if request.method == "POST":
+        values = {
+            key: request.form.get(key, "").strip()
+            for key in values
+        }
+        password = request.form.get("app_password", "")
+        try:
+            try:
+                port = int(values["imap_port"])
+            except (TypeError, ValueError) as error:
+                raise ValueError("Cổng IMAP phải là một số từ 1-65535.") from error
+            if not 1 <= port <= 65535:
+                raise ValueError("Cổng IMAP phải nằm trong khoảng 1-65535.")
+            if not all((values["email_address"], values["imap_host"],
+                        values["imap_username"], password)):
+                raise ValueError("Vui lòng nhập đầy đủ thông tin kết nối IMAP.")
+            test_imap_connection(
+                values["imap_host"], port, values["imap_username"], password
+            )
+            credential = encrypt_value(password)
+            create_email_account(
+                int(current_user.id), "imap", values["email_address"], credential,
+                values["display_name"], values["imap_host"], port,
+                values["imap_username"],
+            )
+            flash("Kết nối tài khoản IMAP thành công.", "success")
+            return redirect(url_for("mail"))
+        except (ValueError, IMAPConnectionError,
+                CredentialConfigurationError) as error:
+            flash(str(error), "danger")
+    return render_template("connect_imap.html", values=values)
+
+
+@app.route("/mail/google/connect")
+@login_required
+def connect_google():
+    try:
+        authorization_url, state, code_verifier = get_authorization_url()
+        session["google_oauth_state"] = state
+        session["google_oauth_user_id"] = int(current_user.id)
+        session["google_oauth_code_verifier"] = code_verifier
+        return redirect(authorization_url)
+    except (GmailConfigurationError, CredentialConfigurationError) as error:
+        flash(str(error), "danger")
+        return redirect(url_for("mail"))
+
+
+@app.route("/mail/google/callback")
+@login_required
+def google_callback():
+    expected_state = session.pop("google_oauth_state", None)
+    oauth_user_id = session.pop("google_oauth_user_id", None)
+    code_verifier = session.pop("google_oauth_code_verifier", None)
+    received_state = request.args.get("state")
+    if (
+        not expected_state
+        or received_state != expected_state
+        or oauth_user_id != int(current_user.id)
+        or not code_verifier
+    ):
+        flash("Phiên kết nối Google không hợp lệ hoặc đã hết hạn.", "danger")
+        return redirect(url_for("mail"))
+    if request.args.get("error"):
+        flash("Bạn đã hủy quyền truy cập Gmail.", "warning")
+        return redirect(url_for("mail"))
+    stage = "token_exchange"
+    try:
+        credentials = exchange_callback_code(
+            request.args.get("code", ""), expected_state, code_verifier
+        )
+        stage = "gmail_profile"
+        profile = get_profile_from_credentials(credentials)
+        email_address = profile.get("emailAddress", "").strip().lower()
+        if not email_address:
+            raise ValueError("Google không trả về địa chỉ Gmail.")
+        stage = "credential_encryption"
+        credential = encrypt_value(credentials_to_json(credentials))
+        stage = "database_save"
+        create_email_account(
+            int(current_user.id), "gmail", email_address, credential,
+            display_name=email_address,
+        )
+        flash("Kết nối Gmail thành công.", "success")
+    except (GmailConfigurationError, CredentialConfigurationError,
+            ValueError) as error:
+        flash(str(error), "danger")
+    except Exception as error:
+        response = getattr(error, "response", None)
+        api_response = getattr(error, "resp", None)
+        status = (
+            getattr(response, "status_code", None)
+            or getattr(api_response, "status", None)
+        )
+        app.logger.error(
+            "Google OAuth failed at %s: %s (HTTP %s)",
+            stage,
+            type(error).__name__,
+            status or "unknown",
+        )
+        stage_messages = {
+            "token_exchange": (
+                "Không thể đổi mã xác thực với Google. "
+                "Hãy kiểm tra Client Secret và thử kết nối lại."
+            ),
+            "gmail_profile": (
+                "Đã xác thực nhưng Gmail API từ chối đọc hồ sơ. "
+                "Hãy kiểm tra Gmail API đã được bật trong Google Cloud."
+            ),
+            "credential_encryption": (
+                "Không thể mã hóa credential. Hãy kiểm tra Fernet key."
+            ),
+            "database_save": "Không thể lưu kết nối Gmail vào database.",
+        }
+        suffix = f" (HTTP {status})" if status else ""
+        flash(stage_messages[stage] + suffix, "danger")
+    return redirect(url_for("mail"))
+
+
+@app.route("/users")
+@admin_required
+def users():
+    return render_template("users.html", users=get_all_users())
+
+
+@app.route("/users/create", methods=["POST"])
+@admin_required
+def create_user_route():
+    try:
+        create_user(
+            request.form.get("name", ""),
+            request.form.get("email", ""),
+            request.form.get("password", ""),
+            request.form.get("role", "user"),
+        )
+        flash("Đã tạo tài khoản mới.", "success")
+    except ValueError as error:
+        flash(str(error), "danger")
+    return redirect(url_for("users"))
+
+
+@app.route("/users/<int:user_id>/toggle-active", methods=["POST"])
+@admin_required
+def toggle_user_active(user_id):
+    row = get_user_by_id(user_id)
+    if not row:
+        flash("Không tìm thấy tài khoản.", "danger")
+    elif user_id == int(current_user.id):
+        flash("Bạn không thể vô hiệu hóa tài khoản đang đăng nhập.", "danger")
+    elif row["role"] == "admin" and row["is_active"] and count_active_admins() <= 1:
+        flash("Hệ thống phải còn ít nhất một Admin đang hoạt động.", "danger")
+    else:
+        set_user_active(user_id, not bool(row["is_active"]))
+        flash("Đã cập nhật trạng thái tài khoản.", "success")
+    return redirect(url_for("users"))
+
+
+@app.route("/users/<int:user_id>/role", methods=["POST"])
+@admin_required
+def change_user_role(user_id):
+    row = get_user_by_id(user_id)
+    role = request.form.get("role", "").strip().lower()
+    if not row:
+        flash("Không tìm thấy tài khoản.", "danger")
+    elif role not in {"admin", "user"}:
+        flash("Vai trò không hợp lệ.", "danger")
+    elif (
+        user_id == int(current_user.id)
+        and role == "user"
+        and count_active_admins(exclude_user_id=user_id) == 0
+    ):
+        flash("Không thể hạ quyền Admin cuối cùng của hệ thống.", "danger")
+    else:
+        update_user_role(user_id, role)
+        flash("Đã cập nhật vai trò tài khoản.", "success")
+    return redirect(url_for("users"))
+
+
 @app.route("/")
+@login_required
 def index():
 
     df = pd.read_csv("dataset/spam_dataset.csv")
@@ -246,7 +753,10 @@ def index():
         pass
 
     model_status = get_model_status()
-    prediction_stats = get_prediction_statistics()
+    statistics_user_id = None
+    if current_user.role != "admin":
+        statistics_user_id = int(current_user.id)
+    prediction_stats = get_prediction_statistics(statistics_user_id)
 
     return render_template(
         "index.html",
@@ -269,6 +779,7 @@ def index():
     )
 
 @app.route("/predict", methods=["GET", "POST"])
+@login_required
 def predict():
 
     result = None
@@ -301,7 +812,8 @@ def predict():
                 save_prediction(
                     subject,
                     message,
-                    result
+                    result,
+                    int(current_user.id),
                 )
 
     model_status = get_model_status()
@@ -317,6 +829,7 @@ def predict():
 
 
 @app.route("/predict/batch", methods=["GET", "POST"])
+@login_required
 def batch_predict():
     results = None
     total = 0
@@ -427,6 +940,7 @@ def batch_predict():
 
 
 @app.route("/predict/batch/download/<filename>")
+@login_required
 def download_batch_result(filename):
     prefix = "batch_result_"
     suffix = ".csv"
@@ -444,6 +958,7 @@ def download_batch_result(filename):
     return send_from_directory("temp", filename, as_attachment=True)
 
 @app.route("/dataset")
+@admin_required
 def dataset():
 
     df = pd.read_csv("dataset/spam_dataset.csv")
@@ -520,6 +1035,7 @@ def dataset():
     "/train",
     methods=["GET", "POST"]
 )
+@admin_required
 def train():
 
     result = None
@@ -583,6 +1099,7 @@ def train():
     )
 
 @app.route("/evaluate")
+@admin_required
 def evaluate():
 
     result = evaluate_model()
@@ -594,6 +1111,7 @@ def evaluate():
 
 
 @app.route("/compare", methods=["GET", "POST"])
+@admin_required
 def compare():
     comparison = None
     best_model = None
@@ -641,21 +1159,25 @@ def compare():
     )
 
 @app.route("/history")
+@login_required
 def history():
+    conn = get_connection()
 
-    conn = sqlite3.connect(
-        "database/database.db"
-    )
-
-    conn.row_factory = sqlite3.Row
-
-    predictions = conn.execute(
-        """
-        SELECT *
-        FROM predictions
-        ORDER BY id DESC
-        """
-    ).fetchall()
+    if current_user.role == "admin":
+        predictions = conn.execute("""
+            SELECT predictions.*, users.name AS user_name, users.email AS user_email
+            FROM predictions
+            LEFT JOIN users ON users.id = predictions.user_id
+            ORDER BY predictions.id DESC
+        """).fetchall()
+    else:
+        predictions = conn.execute("""
+            SELECT predictions.*, users.name AS user_name, users.email AS user_email
+            FROM predictions
+            LEFT JOIN users ON users.id = predictions.user_id
+            WHERE predictions.user_id = ?
+            ORDER BY predictions.id DESC
+        """, (int(current_user.id),)).fetchall()
 
     conn.close()
 
@@ -685,26 +1207,26 @@ def history():
     "/history/delete/<int:id>",
     methods=["POST"]
 )
+@login_required
 def delete_history(id):
-
-    conn = sqlite3.connect(
-        "database/database.db"
-    )
-
+    conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "DELETE FROM predictions WHERE id = ?",
-        (id,)
-    )
+    if current_user.role == "admin":
+        cursor.execute("DELETE FROM predictions WHERE id = ?", (id,))
+    else:
+        cursor.execute(
+            "DELETE FROM predictions WHERE id = ? AND user_id = ?",
+            (id, int(current_user.id)),
+        )
 
     conn.commit()
     conn.close()
 
-    flash(
-        "Đã xóa lịch sử dự đoán.",
-        "success"
-    )
+    if cursor.rowcount:
+        flash("Đã xóa lịch sử dự đoán.", "success")
+    else:
+        flash("Không tìm thấy lịch sử hoặc bạn không có quyền xóa.", "danger")
 
     return redirect(
         url_for("history")
@@ -714,31 +1236,30 @@ def delete_history(id):
     "/history/delete-all",
     methods=["POST"]
 )
+@login_required
 def delete_all_history():
-
-    conn = sqlite3.connect(
-        "database/database.db"
-    )
-
+    conn = get_connection()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "DELETE FROM predictions"
-    )
+    if current_user.role == "admin":
+        cursor.execute("DELETE FROM predictions")
+    else:
+        cursor.execute(
+            "DELETE FROM predictions WHERE user_id = ?",
+            (int(current_user.id),),
+        )
 
     conn.commit()
     conn.close()
 
-    flash(
-        "Đã xóa toàn bộ lịch sử dự đoán.",
-        "success"
-    )
+    flash("Đã xóa lịch sử dự đoán trong phạm vi tài khoản.", "success")
 
     return redirect(
         url_for("history")
     )
 
 @app.route("/algorithm")
+@login_required
 def algorithm():
 
     total = 0
@@ -786,6 +1307,7 @@ def algorithm():
     )
 
 @app.route("/dataset/add", methods=["POST"])
+@admin_required
 def add_dataset():
 
     label = request.form.get(
@@ -856,6 +1378,7 @@ def add_dataset():
     "/dataset/delete/<int:index>",
     methods=["POST"]
 )
+@admin_required
 def delete_dataset(index):
 
     path = "dataset/spam_dataset.csv"
@@ -897,6 +1420,7 @@ def delete_dataset(index):
     "/dataset/import",
     methods=["POST"]
 )
+@admin_required
 def import_dataset():
 
     if "file" not in request.files:
@@ -1065,4 +1589,4 @@ def import_dataset():
     )
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_DEBUG") == "1")

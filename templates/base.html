@@ -40,8 +40,8 @@
                 <i class="bi bi-robot"></i>
             </div>
             <div>
-                <h4>AI Spam</h4>
-                <span>Classifier</span>
+                <h4>Spam Classifier</h4>
+                <span>Naïve Bayes</span>
             </div>
         </div>
 
@@ -54,6 +54,20 @@
             >
                 <i class="bi bi-grid-1x2"></i>
                 <span>Dashboard</span>
+            </a>
+            <a
+                href="{{ url_for('mail') }}"
+                class="sidebar-link {% if request.endpoint in ['mail', 'mail_message_detail', 'submit_mail_feedback', 'connect_imap', 'connect_google', 'google_callback', 'sync_mail_account', 'disconnect_mail_account'] %}active{% endif %}"
+            >
+                <i class="bi bi-inbox"></i>
+                <span>Hộp thư</span>
+            </a>
+            <a
+                href="{{ url_for('quarantine') }}"
+                class="sidebar-link {% if request.endpoint == 'quarantine' %}active{% endif %}"
+            >
+                <i class="bi bi-shield-exclamation"></i>
+                <span>Quarantine</span>
             </a>
             <a
                 href="{{ url_for('predict') }}"
@@ -69,6 +83,7 @@
                 <i class="bi bi-files"></i>
                 <span>Phân loại hàng loạt</span>
             </a>
+            {% if current_user.role == 'admin' %}
             <a
                 href="{{ url_for('dataset') }}"
                 class="sidebar-link {% if request.endpoint in ['dataset', 'add_dataset', 'delete_dataset', 'import_dataset'] %}active{% endif %}"
@@ -97,6 +112,7 @@
                 <i class="bi bi-bar-chart-line"></i>
                 <span>So sánh thuật toán</span>
             </a>
+            {% endif %}
             <a
                 href="{{ url_for('history') }}"
                 class="sidebar-link {% if request.endpoint in ['history', 'delete_history', 'delete_all_history'] %}active{% endif %}"
@@ -111,6 +127,22 @@
                 <i class="bi bi-lightbulb"></i>
                 <span>Thuật toán</span>
             </a>
+            {% if current_user.role == 'admin' %}
+            <a
+                href="{{ url_for('admin_feedback') }}"
+                class="sidebar-link {% if request.endpoint in ['admin_feedback', 'approve_mail_feedback', 'reject_mail_feedback'] %}active{% endif %}"
+            >
+                <i class="bi bi-chat-square-check"></i>
+                <span>Phản hồi mô hình</span>
+            </a>
+            <a
+                href="{{ url_for('users') }}"
+                class="sidebar-link {% if request.endpoint in ['users', 'create_user_route', 'toggle_user_active', 'change_user_role'] %}active{% endif %}"
+            >
+                <i class="bi bi-people"></i>
+                <span>Quản lý người dùng</span>
+            </a>
+            {% endif %}
         </nav>
 
         <div class="sidebar-footer">
@@ -148,10 +180,11 @@
 
                 <div class="topbar-title">
                     <h5>Naïve Bayes Spam Classification</h5>
-                    <span>Hệ thống phân loại thư rác bằng Machine Learning</span>
+                    <span>Hệ thống phân loại thư rác sử dụng thuật toán Naïve Bayes</span>
                 </div>
             </div>
 
+            <div class="topbar-actions">
             <div class="model-status" aria-live="polite">
                 {% if not global_model_status.trained %}
                     <span class="status-dot danger"></span>
@@ -172,6 +205,35 @@
                         <strong class="text-success">Ready</strong>
                     </div>
                 {% endif %}
+            </div>
+            <div class="dropdown user-menu">
+                <button
+                    class="user-menu-toggle"
+                    type="button"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false"
+                    title="Tài khoản"
+                >
+                    <span class="user-avatar"><i class="bi bi-person-fill"></i></span>
+                    <span class="user-menu-name">
+                        <strong>{{ current_user.name }}</strong>
+                        <small>{{ current_user.email }}</small>
+                    </span>
+                    <span class="role-badge {{ current_user.role }}">{{ current_user.role|upper }}</span>
+                    <i class="bi bi-chevron-down user-menu-arrow"></i>
+                </button>
+                <div class="dropdown-menu dropdown-menu-end user-dropdown">
+                    <div class="user-dropdown-profile">
+                        <strong>{{ current_user.name }}</strong>
+                        <span>{{ current_user.email }}</span>
+                    </div>
+                    <form method="POST" action="{{ url_for('logout') }}">
+                        <button type="submit" class="dropdown-item text-danger">
+                            <i class="bi bi-box-arrow-right"></i> Đăng xuất
+                        </button>
+                    </form>
+                </div>
+            </div>
             </div>
         </header>
 

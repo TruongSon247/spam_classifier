@@ -13,14 +13,14 @@
     <i class="bi bi-exclamation-triangle-fill me-2"></i>
     <strong>Mô hình chưa được huấn luyện.</strong>
     Vui lòng huấn luyện mô hình trước khi thực hiện phân loại.
-    <a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện ngay</a>
+    {% if current_user.role == 'admin' %}<a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện ngay</a>{% endif %}
 </div>
 {% elif model_status.outdated %}
 <div class="alert alert-warning custom-alert" role="alert">
     <i class="bi bi-arrow-repeat me-2"></i>
     <strong>Dataset đã thay đổi.</strong>
     Bạn nên huấn luyện lại mô hình để cập nhật dữ liệu mới.
-    <a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện lại</a>
+    {% if current_user.role == 'admin' %}<a href="{{ url_for('train') }}" class="btn btn-warning btn-sm ms-2">Huấn luyện lại</a>{% endif %}
 </div>
 {% endif %}
 
@@ -175,16 +175,31 @@
                         <div><strong>Phân loại thư</strong><span>Kiểm tra SPAM hoặc HAM</span></div>
                         <i class="bi bi-chevron-right ms-auto"></i>
                     </a>
+                    {% if current_user.role == 'admin' %}
                     <a href="{{ url_for('train') }}" class="quick-action-item">
                         <div class="quick-action-icon purple"><i class="bi bi-cpu"></i></div>
                         <div><strong>Huấn luyện Model</strong><span>Huấn luyện lại Naive Bayes</span></div>
                         <i class="bi bi-chevron-right ms-auto"></i>
                     </a>
+                    {% else %}
+                    <a href="{{ url_for('batch_predict') }}" class="quick-action-item">
+                        <div class="quick-action-icon purple"><i class="bi bi-files"></i></div>
+                        <div><strong>Phân loại hàng loạt</strong><span>Kiểm tra danh sách Email CSV</span></div>
+                        <i class="bi bi-chevron-right ms-auto"></i>
+                    </a>
+                    <a href="{{ url_for('history') }}" class="quick-action-item">
+                        <div class="quick-action-icon green"><i class="bi bi-clock-history"></i></div>
+                        <div><strong>Lịch sử của tôi</strong><span>Xem các Email đã phân loại</span></div>
+                        <i class="bi bi-chevron-right ms-auto"></i>
+                    </a>
+                    {% endif %}
+                    {% if current_user.role == 'admin' %}
                     <a href="{{ url_for('dataset') }}" class="quick-action-item">
                         <div class="quick-action-icon green"><i class="bi bi-database"></i></div>
                         <div><strong>Quản lý Dataset</strong><span>Xem và chỉnh sửa dữ liệu</span></div>
                         <i class="bi bi-chevron-right ms-auto"></i>
                     </a>
+                    {% endif %}
                 </div>
             </div>
         </div>

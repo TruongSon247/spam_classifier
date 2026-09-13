@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Người dùng - AI Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="users-page-header">
+    <div class="page-title mb-0"><h2>Quản lý người dùng</h2><p>Tạo tài khoản, phân quyền và kiểm soát quyền truy cập hệ thống.</p></div>
+    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal"><i class="bi bi-person-plus"></i> Thêm người dùng</button>
+</div>
+
+<div class="card users-table-card mt-4">
+    <div class="card-body p-0">
+        <div class="users-table-heading"><div><h4>Danh sách tài khoản</h4><p>{{ users|length }} người dùng trong hệ thống</p></div><i class="bi bi-people"></i></div>
+        <div class="table-responsive">
+            <table class="table users-table align-middle mb-0">
+                <thead><tr><th>Người dùng</th><th>Vai trò</th><th>Trạng thái</th><th>Ngày tạo</th><th>Đăng nhập gần nhất</th><th class="text-end">Thao tác</th></tr></thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td><div class="users-identity"><span>{{ user['name'][0]|upper }}</span><div><strong>{{ user['name'] }}</strong><small>{{ user['email'] }}</small></div></div></td>
+                        <td><span class="role-badge {{ user['role'] }}">{{ user['role']|upper }}</span></td>
+                        <td>{% if user['is_active'] %}<span class="user-status active"><i class="bi bi-check-circle-fill"></i> Hoạt động</span>{% else %}<span class="user-status disabled"><i class="bi bi-slash-circle-fill"></i> Đã khóa</span>{% endif %}</td>
+                        <td>{{ user['created_at'] }}</td>
+                        <td>{{ user['last_login'] or 'Chưa đăng nhập' }}</td>
+                        <td>
+                            <div class="users-actions">
+                                <form method="POST" action="{{ url_for('change_user_role', user_id=user['id']) }}">
+                                    <select name="role" class="form-select form-select-sm" aria-label="Vai trò của {{ user['name'] }}" onchange="this.form.submit()">
+                                        <option value="user" {% if user['role'] == 'user' %}selected{% endif %}>User</option>
+                                        <option value="admin" {% if user['role'] == 'admin' %}selected{% endif %}>Admin</option>
+                                    </select>
+                                </form>
+                                <form method="POST" action="{{ url_for('toggle_user_active', user_id=user['id']) }}">
+                                    <button type="submit" class="btn btn-sm {% if user['is_active'] %}btn-outline-danger{% else %}btn-outline-success{% endif %}" {% if user['id']|string == current_user.id %}disabled title="Không thể khóa tài khoản đang dùng"{% endif %}>
+                                        {% if user['is_active'] %}<i class="bi bi-lock"></i> Khóa{% else %}<i class="bi bi-unlock"></i> Mở khóa{% endif %}
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="empty-state"><i class="bi bi-people"></i><p>Chưa có tài khoản.</p></td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="POST" action="{{ url_for('create_user_route') }}">
+        <div class="modal-header"><h5 class="modal-title" id="createUserTitle"><i class="bi bi-person-plus"></i> Thêm người dùng</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+        <div class="modal-body">
+            <div class="mb-3"><label for="newName" class="form-label">Họ và tên</label><input id="newName" name="name" class="form-control" required maxlength="100"></div>
+            <div class="mb-3"><label for="newEmail" class="form-label">Email</label><input id="newEmail" type="email" name="email" class="form-control" required maxlength="200"></div>
+            <div class="mb-3"><label for="newPassword" class="form-label">Mật khẩu</label><input id="newPassword" type="password" name="password" class="form-control" required minlength="8" autocomplete="new-password"><div class="form-text">Tối thiểu 8 ký tự.</div></div>
+            <div><label for="newRole" class="form-label">Vai trò</label><select id="newRole" name="role" class="form-select"><option value="user">User</option><option value="admin">Admin</option></select></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button><button type="submit" class="btn btn-primary"><i class="bi bi-person-check"></i> Tạo tài khoản</button></div>
+    </form></div></div>
+</div>
+{% endblock %}

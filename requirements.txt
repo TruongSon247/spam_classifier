@@ -1,4 +1,10 @@
 Flask
+Flask-Login
+google-api-python-client
+google-auth
+google-auth-oauthlib
+cryptography
+python-dotenv
 pandas
 numpy
 scikit-learn

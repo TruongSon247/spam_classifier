@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Hộp thư - AI Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="mail-page-header">
+    <div class="page-title mb-0"><h2>Hộp thư Email</h2><p>Đồng bộ Inbox và phân loại Email bằng mô hình hiện tại.</p></div>
+    <div class="mail-connect-actions">
+        <a href="{{ url_for('connect_google') }}" class="btn btn-outline-primary"><i class="bi bi-google"></i> Kết nối Gmail</a>
+        <a href="{{ url_for('connect_imap') }}" class="btn btn-primary"><i class="bi bi-hdd-network"></i> Kết nối IMAP</a>
+    </div>
+</div>
+
+{% if not model_status.trained %}
+<div class="alert alert-warning custom-alert mt-4"><i class="bi bi-exclamation-triangle-fill"></i><strong>Mô hình chưa được huấn luyện.</strong> Bạn vẫn có thể kết nối tài khoản nhưng chưa thể đồng bộ và phân loại Email.</div>
+{% elif model_status.outdated %}
+<div class="alert alert-warning custom-alert mt-4"><i class="bi bi-arrow-repeat"></i> Model hiện tại cần được huấn luyện lại. Bạn vẫn có thể đồng bộ hộp thư.</div>
+{% endif %}
+
+<section class="mail-accounts" aria-labelledby="mailAccountsTitle">
+    <div class="mail-section-heading"><div><h3 id="mailAccountsTitle">Tài khoản đã kết nối</h3><p>{{ accounts|length }} kết nối đang hoạt động</p></div></div>
+    <div class="mail-account-grid">
+        {% for account in accounts %}
+        <article class="mail-account-card">
+            <div class="mail-provider-icon {{ account['provider'] }}"><i class="bi {% if account['provider'] == 'gmail' %}bi-google{% else %}bi-hdd-network{% endif %}"></i></div>
+            <div class="mail-account-info"><span class="provider-badge {{ account['provider'] }}">{{ account['provider']|upper }}</span><strong>{{ account['display_name'] or account['email_address'] }}</strong><small>{{ account['email_address'] }}</small><p>Đồng bộ gần nhất: {{ account['last_sync_at'] or 'Chưa đồng bộ' }}</p></div>
+            <div class="mail-account-actions">
+                <form method="POST" action="{{ url_for('sync_mail_account', account_id=account['id']) }}"><button type="submit" class="btn btn-primary btn-sm mail-sync-button" {% if not model_status.trained %}disabled{% endif %}><i class="bi bi-arrow-repeat"></i> Đồng bộ</button></form>
+                <form method="POST" action="{{ url_for('disconnect_mail_account', account_id=account['id']) }}" class="mail-disconnect-form"><button type="submit" class="btn btn-outline-danger btn-sm" title="Ngắt kết nối"><i class="bi bi-link-45deg"></i> Ngắt</button></form>
+            </div>
+        </article>
+        {% else %}
+        <div class="mail-account-empty"><i class="bi bi-inbox"></i><div><strong>Chưa kết nối hộp thư</strong><span>Kết nối Gmail hoặc một máy chủ IMAP để bắt đầu.</span></div></div>
+        {% endfor %}
+    </div>
+</section>
+
+<div class="row g-3 my-2">
+    {% set mail_stats = [('Tổng Email', statistics['total'], 'blue', 'bi-envelope'), ('SPAM', statistics['spam'], 'red', 'bi-shield-exclamation'), ('HAM', statistics['ham'], 'green', 'bi-shield-check'), ('Confidence thấp', statistics['low_confidence'], 'yellow', 'bi-exclamation-diamond')] %}
+    {% for label, value, color, icon in mail_stats %}
+    <div class="col-xl-3 col-sm-6"><div class="mail-stat-card"><span class="mail-stat-icon {{ color }}"><i class="bi {{ icon }}"></i></span><div><small>{{ label }}</small><strong>{{ value }}</strong></div></div></div>
+    {% endfor %}
+</div>
+
+<section class="card mail-table-card">
+    <div class="mail-table-toolbar">
+        <div><h3>Email đã đồng bộ</h3><p>Kết quả phân loại được lưu riêng với History thủ công.</p></div>
+        <form method="GET" class="mail-search-form">
+            <input type="hidden" name="filter" value="{{ selected_filter }}">
+            <div class="input-group"><span class="input-group-text"><i class="bi bi-search"></i></span><input type="search" name="search" class="form-control" value="{{ search }}" placeholder="Tìm tiêu đề hoặc người gửi"><button class="btn btn-primary" type="submit">Tìm</button></div>
+        </form>
+    </div>
+    <nav class="mail-filters" aria-label="Lọc Email">
+        {% for value, label in [('all', 'Tất cả'), ('spam', 'SPAM'), ('ham', 'HAM'), ('low', 'Confidence thấp')] %}
+        <a href="{{ url_for('mail', filter=value, search=search) }}" class="mail-filter {% if selected_filter == value %}active{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </nav>
+    {% if messages %}
+    <div class="table-responsive"><table class="table mail-table align-middle mb-0">
+        <thead><tr><th>Người gửi</th><th>Email</th><th>Kết quả</th><th>SPAM / HAM</th><th>Confidence</th><th>Thời gian</th><th>Account</th></tr></thead>
+        <tbody>{% for item in messages %}<tr>
+            <td><div class="mail-sender"><strong>{{ item['sender_name'] or 'Không rõ tên' }}</strong><span>{{ item['sender_email'] or 'Không rõ Email' }}</span></div></td>
+            <td><a class="mail-subject" href="{{ url_for('mail_message_detail', message_id=item['id']) }}"><strong>{{ item['subject'] or '(Không có tiêu đề)' }}</strong><span>{{ item['snippet'] or item['body_text'] }}</span></a></td>
+            <td><div class="feedback-badge-stack"><span class="mail-prediction {{ item['prediction'] }}">Model: {{ item['prediction']|upper }}</span>{% if item['is_quarantined'] %}<span class="feedback-badge quarantine">Quarantine</span>{% endif %}{% if item['user_label'] %}<span class="feedback-badge user-label">User: {{ item['user_label']|upper }}</span>{% endif %}</div></td>
+            <td><div class="mail-probability"><span class="text-danger">{{ '%.1f'|format(item['spam_probability'] * 100) }}%</span><span class="text-success">{{ '%.1f'|format(item['ham_probability'] * 100) }}%</span></div></td>
+            <td>{% if item['confidence'] < 0.65 %}<span class="confidence-badge low">Thấp {{ '%.1f'|format(item['confidence'] * 100) }}%</span>{% else %}<span class="confidence-badge">{{ '%.1f'|format(item['confidence'] * 100) }}%</span>{% endif %}</td>
+            {% set mail_date = item['received_at'] or item['synced_at'] %}<td class="mail-date">{{ mail_date[:16]|replace('T', ' ') }}</td>
+            <td><span class="provider-badge {{ item['account_provider'] }}">{{ item['account_provider']|upper }}</span><small class="mail-account-email">{{ item['account_email'] }}</small></td>
+        </tr>{% endfor %}</tbody>
+    </table></div>
+    {% else %}
+    <div class="mail-empty"><i class="bi bi-envelope-open"></i><h4>Không có Email phù hợp</h4><p>Hãy đồng bộ hộp thư hoặc thay đổi bộ lọc.</p></div>
+    {% endif %}
+    {% if total_pages > 1 %}
+    <nav class="mail-pagination" aria-label="Phân trang Email"><a class="btn btn-sm btn-light {% if page == 1 %}disabled{% endif %}" href="{{ url_for('mail', page=page-1, filter=selected_filter, search=search) }}"><i class="bi bi-chevron-left"></i></a><span>Trang {{ page }} / {{ total_pages }}</span><a class="btn btn-sm btn-light {% if page == total_pages %}disabled{% endif %}" href="{{ url_for('mail', page=page+1, filter=selected_filter, search=search) }}"><i class="bi bi-chevron-right"></i></a></nav>
+    {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}<script>document.querySelectorAll(".mail-disconnect-form").forEach(function(form){form.addEventListener("submit",function(event){if(!window.confirm("Ngắt kết nối tài khoản này? Email đã đồng bộ vẫn được giữ lại.")){event.preventDefault();}});});document.querySelectorAll(".mail-sync-button").forEach(function(button){button.closest("form").addEventListener("submit",function(){button.disabled=true;button.innerHTML='<span class="spinner-border spinner-border-sm"></span> Đang đồng bộ';});});</script>{% endblock %}

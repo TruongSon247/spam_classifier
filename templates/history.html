@@ -45,7 +45,7 @@
         {% if predictions %}
         <div class="table-responsive">
             <table class="table history-table align-middle mb-0">
-                <thead><tr><th>ID</th><th>Email</th><th>Kết quả</th><th>Xác suất</th><th>Thời gian</th><th class="text-center">Thao tác</th></tr></thead>
+                <thead><tr><th>ID</th><th>Email</th>{% if current_user.role == 'admin' %}<th>Người thực hiện</th>{% endif %}<th>Kết quả</th><th>Xác suất</th><th>Thời gian</th><th class="text-center">Thao tác</th></tr></thead>
                 <tbody>
                     {% for item in predictions %}
                     <tr>
@@ -56,6 +56,14 @@
                                 <span>{{ item["message"] }}</span>
                             </div>
                         </td>
+                        {% if current_user.role == 'admin' %}
+                        <td>
+                            <div class="history-owner">
+                                <strong>{{ item['user_name'] or 'Dữ liệu cũ' }}</strong>
+                                <span>{{ item['user_email'] or 'Chưa gán tài khoản' }}</span>
+                            </div>
+                        </td>
+                        {% endif %}
                         <td>
                             {% if item["prediction"]|lower == "spam" %}
                             <span class="history-result spam"><i class="bi bi-exclamation-triangle-fill"></i> SPAM</span>

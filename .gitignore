@@ -7,6 +7,10 @@ __pycache__/
 
 .vscode/
 .idea/
+.env
+client_secret*.json
+credentials*.json
+token*.json
 
 temp/*
 !temp/.gitkeep
