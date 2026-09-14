@@ -2,6 +2,16 @@
 
 Ứng dụng Flask phân loại Email **SPAM/HAM** bằng Multinomial Naive Bayes, hỗ trợ nội dung tiếng Việt và tiếng Anh.
 
+## Đề tài
+
+**Xây dựng chương trình phân loại thư rác sử dụng thuật toán Naive Bayes.**
+
+## Mục tiêu
+
+Xây dựng một quy trình học có giám sát hoàn chỉnh từ Dataset, tiền xử lý Unicode,
+biểu diễn TF-IDF đến Multinomial Naive Bayes; đồng thời minh họa khả năng áp dụng
+model vào dự đoán thủ công, Gmail/IMAP, Quarantine và REST API.
+
 ## Chức năng
 
 - Dashboard thống kê Dataset, metric và lịch sử dự đoán.
@@ -16,16 +26,19 @@
 - Tách Dashboard và History theo người dùng; Admin có thể xem toàn hệ thống.
 - Kết nối Gmail OAuth 2.0 hoặc IMAP SSL, đồng bộ Inbox và phân loại cục bộ.
 - Cách ly cục bộ Email SPAM, ghi nhận phản hồi người dùng và duyệt dữ liệu opt-in.
+- Quản lý phiên bản model, rollback, API Key, nhật ký kiểm toán và Backup/Restore.
 
 ## Công nghệ
 
 - **Backend:** Python, Flask, Flask-Login
+- **Bảo mật Web:** Flask-WTF, Flask-Limiter, cryptography
 - **Machine Learning:** scikit-learn, TF-IDF, Multinomial Naive Bayes
 - **Data:** pandas, NumPy, joblib
+- **Gmail:** Google API Client, Google Auth và OAuth 2.0 với PKCE
 - **Database:** SQLite
 - **Frontend:** HTML, CSS, JavaScript, Bootstrap 5, Chart.js
 
-## Pipeline
+## Thuật toán
 
 ```text
 Email
@@ -38,15 +51,23 @@ Email
 
 Naive Bayes là model chính. Logistic Regression và Linear SVM chỉ được huấn luyện tạm trong RAM trên trang so sánh, không ghi đè model chính.
 
+- **TF-IDF:** biến văn bản thành vector trọng số đặc trưng.
+- **Unigram + Bigram:** học cả từ đơn và cụm hai từ liền nhau.
+- **Multinomial Naive Bayes:** phân loại vector văn bản thành `spam` hoặc `ham`, với `alpha=1.0`.
+
 ## Cấu trúc
 
 ```text
 spam_classifier/
 ├── app.py
 ├── auth.py
+├── config.py
+├── extensions.py
 ├── requirements.txt
 ├── requirements-lock.txt
 ├── README.md
+├── ARCHITECTURE.md
+├── DEFENSE_NOTES.md
 ├── database/
 │   ├── db.py
 │   └── database.db
@@ -68,6 +89,11 @@ spam_classifier/
 │   ├── algorithm_routes.py
 │   ├── mail_routes.py
 │   ├── feedback_routes.py
+│   ├── model_version_routes.py
+│   ├── api_routes.py
+│   ├── api_key_routes.py
+│   ├── audit_routes.py
+│   ├── backup_routes.py
 │   └── admin_routes.py
 ├── model/
 │   ├── model.pkl
@@ -80,6 +106,9 @@ spam_classifier/
 │   ├── imap_service.py
 │   ├── mail_service.py
 │   ├── message_parser.py
+│   ├── model_registry_service.py
+│   ├── backup_service.py
+│   ├── audit_service.py
 │   └── application_service.py
 ├── static/
 │   ├── css/
@@ -89,6 +118,8 @@ spam_classifier/
 │   │   └── pages/
 │   └── js/
 ├── tests/
+├── logs/
+├── backups/
 └── temp/
 ```
 
@@ -101,12 +132,14 @@ entrypoint import các nhóm CSS theo đúng thứ tự cascade ban đầu.
 
 Yêu cầu Python 3.10 trở lên.
 
+Tạo `.env` từ `.env.example`. Trong development cần đặt một
+`FLASK_SECRET_KEY` riêng; Gmail/IMAP còn cần `CREDENTIAL_ENCRYPTION_KEY`.
+
 ```powershell
 python -m venv venv
 .\venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-$env:FLASK_SECRET_KEY = "thay-bang-mot-chuoi-bi-mat-dai-va-ngau-nhien"
 flask --app app create-admin
 python app.py
 ```
@@ -119,6 +152,14 @@ không hiển thị khi nhập, phải có ít nhất 8 ký tự và chỉ đư�
 **Quản lý người dùng**.
 
 Nếu model chưa tồn tại hoặc hiển thị **Cần Train lại**, mở trang **Huấn luyện** và bấm **Huấn luyện mô hình**.
+
+Nếu database đã có Admin thì không cần chạy `create-admin` lần nữa.
+
+## Training / Testing
+
+Dataset hợp lệ được chia có phân tầng thành khoảng 80% Training và 20% Testing,
+với `random_state=42`. Vectorizer chỉ fit trên tập Training. Mỗi lần Admin huấn
+luyện thành công sẽ tạo một snapshot model bất biến và đánh dấu phiên bản mới là Active.
 
 ## Phân quyền
 
@@ -147,8 +188,9 @@ credential cũ sẽ không giải mã được. Không commit `.env`, OAuth toke
    `http://127.0.0.1:5000/mail/google/callback`.
 5. Điền Client ID và Client Secret vào `.env`, sau đó chạy lại Flask.
 
-Scope ứng dụng yêu cầu chỉ là `gmail.readonly`. Mỗi lần bấm Đồng bộ chỉ đọc tối đa
-50 thư gần nhất trong Inbox, không xóa, di chuyển, tải attachment hoặc đổi nhãn Gmail.
+Scope ứng dụng yêu cầu chỉ là `gmail.readonly`. Mỗi lần bấm Đồng bộ có thể chọn
+50, 100, 200, 300 hoặc 500 thư gần nhất trong Inbox. Ứng dụng không xóa, di chuyển,
+tải attachment hoặc đổi nhãn Gmail.
 
 ## Quarantine và phản hồi
 
@@ -252,22 +294,35 @@ Các metric sử dụng lớp `spam` làm lớp dương:
 - F1-score
 - Confusion Matrix
 
+`TN + FP + FN + TP` phải bằng kích thước tập Testing. Chỉ số trên giao diện được
+đọc từ đúng model đang hoạt động; `spam` là lớp dương.
+
+## Model Versioning
+
+Mỗi lần huấn luyện tạo thư mục `model/versions/vNNNN/` chứa model, vectorizer và
+metadata. Chỉ một phiên bản được Active. Rollback cài lại snapshot đã xác minh mà
+không xóa các phiên bản khác; model chính vẫn luôn là Multinomial Naive Bayes.
+
 Ba thuật toán trên trang **So sánh thuật toán** dùng cùng Dataset hợp lệ, split 80/20, `random_state=42` và TF-IDF Unigram + Bigram. Kết quả được xếp hạng theo F1-score.
 
 ## Hạn chế
 
 - Chất lượng phụ thuộc vào độ đa dạng và độ chính xác của Dataset.
 - Dataset hiện tại có các mẫu lặp; metric từ split ngẫu nhiên có thể lạc quan nếu mẫu giống nhau xuất hiện ở cả Training và Testing.
-- Dataset tiếng Việt cần thêm dữ liệu thực tế để tăng khả năng tổng quát.
-- Chưa có cross-validation hoặc hyperparameter tuning.
+- Tiếng Việt cần thêm dữ liệu thực tế, đa dạng và được gắn nhãn tốt để tăng khả năng tổng quát.
+- Một lần chia train/test chưa mạnh bằng cross-validation và chưa có hyperparameter tuning.
+- Naive Bayes giả định các đặc trưng độc lập có điều kiện, trong khi các từ trong ngôn ngữ tự nhiên có liên hệ với nhau.
 - Gmail chỉ dùng quyền đọc; Quarantine không tác động lên hộp thư ở máy chủ.
+- SQLite phù hợp cho demo hoặc quy mô nhỏ, không dành cho tải đồng thời lớn.
+- Rate limit dùng memory storage, phù hợp local/demo và không chia sẻ trạng thái giữa nhiều tiến trình.
 
 ## Hướng phát triển
 
 - Bổ sung Dataset tiếng Việt chất lượng cao.
-- Thêm cross-validation và tối ưu siêu tham số.
-- Tích hợp Email API và xác thực đa yếu tố.
-- Đóng gói triển khai bằng Docker hoặc dịch vụ cloud.
+- Thêm Dataset lớn hơn, cross-validation và tối ưu siêu tham số.
+- Chuyển sang PostgreSQL và đồng bộ Email bằng background worker khi cần mở rộng.
+- Bật HTTPS production, Docker hóa và triển khai lên hạ tầng phù hợp.
+- So sánh thêm Transformer/NLP model trong một nghiên cứu tương lai, không thay thế trọng tâm Naive Bayes hiện tại.
 
 ## Audit và system log
 
@@ -277,6 +332,8 @@ Log vận hành nằm tại `logs/app.log`, tự xoay ở mức 2 MB và giữ t
 Khi triển khai production nên cấu hình thời hạn lưu audit phù hợp.
 
 ## Sao lưu và khôi phục
+
+## Backup & Restore
 
 Admin quản lý các bản sao lưu cục bộ tại `/admin/backups`. Mỗi file ZIP gồm database
 SQLite, Dataset, model đang hoạt động, toàn bộ lịch sử `model/versions/` và manifest
@@ -305,3 +362,36 @@ giữ phiên bản phù hợp.
 
 Development local dùng HTTP nên có thể đặt `OAUTHLIB_INSECURE_TRANSPORT=1` trong `.env`.
 Production phải đặt `APP_ENV=production`, dùng HTTPS, cấu hình `FLASK_SECRET_KEY` mạnh và không bật insecure transport.
+
+## API Key Usage
+
+Tạo key tại **Quản trị → API Keys**, lưu key đầy đủ ngay khi hệ thống hiển thị lần
+đầu và gửi qua header `X-API-Key`. Không ghi key vào source, ảnh chụp hoặc tài liệu;
+có thể vô hiệu hóa key mà không cần xóa bản ghi kiểm toán.
+
+## Demo Flow
+
+Flow 7–10 phút: Login Admin → Dashboard → Thuật toán → Dataset → Huấn luyện →
+Đánh giá → Phân loại thư → Hộp thư Gmail/IMAP → Quarantine/Feedback → Phiên bản
+model → API Keys/API docs → Audit/Backup. Bản rút gọn 5 phút nên dùng Dashboard,
+Thuật toán, Predict, Evaluate, Mailbox và Model Versioning.
+
+## Release Checklist
+
+- [x] App khởi động và model ở trạng thái Ready
+- [x] Login, phân quyền và AI Predict hoạt động
+- [x] Dataset, Train, Evaluate và Model Version có test tự động
+- [x] Mailbox, Quarantine, Feedback và quy tắc Email có test tự động
+- [x] REST API, API Key, Audit, Backup và Security có test tự động
+- [x] README, `.env.example`, tài liệu kiến trúc và bảo vệ đã hoàn thiện
+- [x] `.env`, `venv/`, log, backup cá nhân, cache và output tạm bị loại khỏi Git/ZIP
+- [x] Không phát hiện secret thật trong source được theo dõi
+- [ ] Xác nhận OAuth consent bằng tài khoản Google thật trên máy demo
+- [ ] Tạo `AI_Spam_Classifier_Naive_Bayes.zip` sau khi quyết định giữ hay làm sạch dữ liệu demo
+
+## Chuẩn bị ZIP
+
+Đưa vào ZIP: source Python, `routes/`, `services/`, `database/`, `dataset/`, `ml/`,
+`model/`, `templates/`, `static/`, `tests/`, requirements và tài liệu Markdown.
+Không đưa `.env`, `venv/`, `.git/`, `__pycache__/`, log, backup cá nhân hay file
+trong `temp/` vào bản nộp.

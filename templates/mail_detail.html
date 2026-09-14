@@ -19,7 +19,7 @@
         <div class="mail-policy-panel">
             <span>QUY TẮC HỆ THỐNG</span>
             {% if message['matched_rule_id'] %}
-            <dl><div><dt>Rule</dt><dd><span class="rule-badge {{ message['matched_rule_type'] }}">{{ message['matched_rule_type']|capitalize }}</span></dd></div><div><dt>Target</dt><dd>{{ message['matched_target_type']|capitalize }}</dd></div><div><dt>Value</dt><dd>{{ message['matched_target_value'] }}</dd></div><div><dt>Policy</dt><dd><span class="policy-badge {{ message['policy_action'] }}">{{ message['policy_action']|capitalize }}</span></dd></div></dl>
+            <dl><div><dt>Quy tắc</dt><dd><span class="rule-badge {{ message['matched_rule_type'] }}">{{ message['matched_rule_type']|capitalize }}</span></dd></div><div><dt>Đối tượng</dt><dd>{{ message['matched_target_type']|capitalize }}</dd></div><div><dt>Giá trị</dt><dd>{{ message['matched_target_value'] }}</dd></div><div><dt>Chính sách</dt><dd><span class="policy-badge {{ message['policy_action'] }}">{{ message['policy_action']|capitalize }}</span></dd></div></dl>
             {% else %}
             <p>Không có rule phù hợp.<small>Kết quả vận hành dựa trên Naïve Bayes.</small></p>
             {% endif %}

@@ -37,7 +37,7 @@
         </form>
     </div>
     {% if rules %}
-    <div class="table-responsive"><table class="table mail-rule-table align-middle mb-0"><thead><tr><th>Type</th><th>Target</th><th>Value</th><th>Description</th><th>Status</th><th>Created By</th><th>Created At</th><th class="text-end">Action</th></tr></thead><tbody>
+    <div class="table-responsive"><table class="table mail-rule-table align-middle mb-0"><thead><tr><th>Loại</th><th>Đối tượng</th><th>Giá trị</th><th>Mô tả</th><th>Trạng thái</th><th>Người tạo</th><th>Ngày tạo</th><th class="text-end">Thao tác</th></tr></thead><tbody>
         {% for rule in rules %}<tr>
             <td><span class="rule-badge {{ rule['rule_type'] }}">{{ rule['rule_type']|capitalize }}</span></td>
             <td><span class="target-badge {{ rule['target_type'] }}"><i class="bi {% if rule['target_type'] == 'email' %}bi-envelope{% else %}bi-globe2{% endif %}"></i> {{ rule['target_type']|capitalize }}</span></td>

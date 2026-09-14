@@ -39,7 +39,7 @@
 <section class="card api-key-table-card">
     <div class="api-key-table-header"><div><h3>Danh sách API Keys</h3><p>Key đầy đủ không thể xem lại sau khi tạo.</p></div><span>{{ api_keys|length }} keys</span></div>
     {% if api_keys %}
-    <div class="table-responsive"><table class="table align-middle api-key-table mb-0"><thead><tr><th>Tên</th><th>Prefix</th><th>Trạng thái</th><th>Requests</th><th>SPAM / HAM</th><th>Người tạo</th><th>Ngày tạo</th><th>Lần dùng cuối</th><th class="text-end">Thao tác</th></tr></thead><tbody>
+    <div class="table-responsive"><table class="table align-middle api-key-table mb-0"><thead><tr><th>Tên</th><th>Tiền tố</th><th>Trạng thái</th><th>Lượt gọi</th><th>SPAM / HAM</th><th>Người tạo</th><th>Ngày tạo</th><th>Lần dùng cuối</th><th class="text-end">Thao tác</th></tr></thead><tbody>
         {% for api_key in api_keys %}<tr>
             <td><strong>{{ api_key.name }}</strong></td>
             <td><code>{{ api_key.key_prefix }}...</code></td>

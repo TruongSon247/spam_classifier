@@ -110,14 +110,17 @@
     .user-menu-name, .user-menu-toggle > .role-badge { display: none; }
 }
 
-@media (max-width: 767.98px) {
-    .model-status { display: none; }
-    .user-menu-arrow { display: none; }
-    .user-menu-toggle { min-height: 42px; padding: 4px; border: 0; background: transparent; }
+@media (max-width: 800px) {
     .login-shell { grid-template-columns: minmax(0, 1fr); }
     .login-brand-panel { display: none; }
     .login-form-panel { min-height: 100vh; padding: 24px; }
     .login-mobile-brand { display: flex; align-items: center; gap: 8px; margin-bottom: 45px; color: #1d4ed8; font-size: 14px; font-weight: 700; }
+}
+
+@media (max-width: 767.98px) {
+    .model-status { display: none; }
+    .user-menu-arrow { display: none; }
+    .user-menu-toggle { min-height: 42px; padding: 4px; border: 0; background: transparent; }
     .users-page-header { align-items: flex-start; flex-direction: column; }
     .users-page-header .btn { width: 100%; }
 }
