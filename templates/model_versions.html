@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Phiên bản mô hình - Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="page-heading model-version-heading">
+    <div class="page-title mb-0">
+        <h2>Quản lý phiên bản mô hình</h2>
+        <p>Lịch sử huấn luyện và khôi phục Multinomial Naive Bayes.</p>
+    </div>
+    <a href="{{ url_for('train') }}" class="btn btn-primary">
+        <i class="bi bi-cpu me-1"></i> Huấn luyện phiên bản mới
+    </a>
+</div>
+
+{% if active_version %}
+<section class="active-model-panel mb-4">
+    <div class="active-model-title">
+        <span class="active-model-icon"><i class="bi bi-box-seam"></i></span>
+        <div><span>ACTIVE MODEL</span><h3>{{ active_version.version }}</h3></div>
+        <span class="model-version-badge active">ACTIVE</span>
+    </div>
+    <div class="active-model-metrics">
+        <div><span>Thuật toán</span><strong>{{ active_version.model_name }}</strong></div>
+        <div><span>Accuracy</span><strong>{{ "%.2f"|format((active_version.accuracy or 0) * 100) }}%</strong></div>
+        <div><span>F1-score</span><strong>{{ "%.2f"|format((active_version.f1 or 0) * 100) }}%</strong></div>
+        <div><span>Dataset</span><strong>{{ active_version.dataset_size or 0 }} mẫu</strong></div>
+        <div><span>Huấn luyện lúc</span><strong>{{ active_version.created_at }}</strong></div>
+    </div>
+</section>
+{% else %}
+<div class="alert alert-warning custom-alert mb-4">
+    <i class="bi bi-exclamation-triangle-fill"></i> Chưa có phiên bản model nào được đăng ký.
+</div>
+{% endif %}
+
+{% if versions|length > 1 %}
+<div class="card mb-4">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title">
+            <div><h4>So sánh chất lượng</h4><p>Accuracy và F1-score qua các lần huấn luyện</p></div>
+            <i class="bi bi-graph-up"></i>
+        </div>
+        <div class="model-version-chart"><canvas id="modelVersionChart"></canvas></div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card mb-4">
+    <div class="card-header model-version-table-header">
+        <div><h4>Lịch sử mô hình</h4><p>Mỗi phiên bản là một snapshot độc lập, không bị ghi đè.</p></div>
+        <span>{{ versions|length }} phiên bản</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle model-version-table mb-0">
+            <thead><tr><th>Version</th><th>Trạng thái</th><th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>Dataset</th><th>Vocabulary</th><th>Thời gian</th><th>Người tạo</th><th>Ngày tạo</th><th></th></tr></thead>
+            <tbody>
+            {% for version in versions %}
+                <tr>
+                    <td><strong>{{ version.version }}</strong>{% if version.notes %}<small title="{{ version.notes }}">{{ version.notes }}</small>{% endif %}</td>
+                    <td><span class="model-version-badge {{ 'active' if version.is_active else 'inactive' }}">{{ 'ACTIVE' if version.is_active else 'INACTIVE' }}</span></td>
+                    <td>{{ "%.2f"|format((version.accuracy or 0) * 100) }}%</td>
+                    <td>{{ "%.2f"|format((version.precision or 0) * 100) }}%</td>
+                    <td>{{ "%.2f"|format((version.recall or 0) * 100) }}%</td>
+                    <td>{{ "%.2f"|format((version.f1 or 0) * 100) }}%</td>
+                    <td>{{ version.dataset_size or 0 }}</td>
+                    <td>{{ version.vocabulary_size or 0 }}</td>
+                    <td>{{ "%.3f"|format(version.training_time or 0) }}s</td>
+                    <td>{{ version.creator_name or 'Hệ thống' }}</td>
+                    <td>{{ version.created_at }}</td>
+                    <td class="text-end">
+                        {% if not version.is_active %}
+                        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#rollbackModal{{ version.id }}">
+                            <i class="bi bi-arrow-counterclockwise"></i> Khôi phục
+                        </button>
+                        {% else %}<span class="text-success model-active-label"><i class="bi bi-check-circle"></i> Đang dùng</span>{% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="12" class="model-version-empty"><i class="bi bi-box"></i><span>Chưa có lịch sử mô hình.</span></td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if events %}
+<div class="card">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title"><div><h4>Hoạt động gần đây</h4><p>Lịch sử Train và Rollback</p></div><i class="bi bi-clock-history"></i></div>
+        <div class="model-event-list">
+        {% for event in events %}
+            <div><span class="model-event-icon"><i class="bi {{ 'bi-cpu' if event.event_type == 'train' else 'bi-arrow-counterclockwise' }}"></i></span><p><strong>{{ event.user_name or 'Hệ thống' }}</strong> {{ 'đã huấn luyện' if event.event_type == 'train' else ('đã khôi phục' if event.event_type == 'rollback' else 'đã kích hoạt') }} <strong>{{ event.to_version }}</strong>{% if event.from_version %} từ {{ event.from_version }}{% endif %}</p><time>{{ event.created_at }}</time></div>
+        {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% for version in versions if not version.is_active %}
+<div class="modal fade" id="rollbackModal{{ version.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Xác nhận khôi phục model</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+        <div class="modal-body">Bạn có chắc muốn chuyển model đang hoạt động từ <strong>{{ active_version.version if active_version else 'chưa có' }}</strong> về <strong>{{ version.version }}</strong>? Quá trình này không huấn luyện lại mô hình.</div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button><form method="POST" action="{{ url_for('rollback_model_version', version_id=version.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-primary"><i class="bi bi-arrow-counterclockwise me-1"></i> Xác nhận khôi phục</button></form></div>
+    </div></div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block scripts %}
+{% if versions|length > 1 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+const modelVersionCanvas = document.getElementById("modelVersionChart");
+if (modelVersionCanvas && window.Chart) {
+    new Chart(modelVersionCanvas, {type: "line", data: {labels: {{ chart_labels|tojson }}, datasets: [{label: "Accuracy", data: {{ chart_accuracy|tojson }}, borderColor: "#2563eb", backgroundColor: "#2563eb", tension: 0.25}, {label: "F1-score", data: {{ chart_f1|tojson }}, borderColor: "#16a34a", backgroundColor: "#16a34a", tension: 0.25}]}, options: {responsive: true, maintainAspectRatio: false, scales: {y: {suggestedMin: 0, suggestedMax: 100, ticks: {callback: value => value + "%"}}}, plugins: {legend: {position: "bottom"}}}});
+}
+</script>
+{% endif %}
+{% endblock %}

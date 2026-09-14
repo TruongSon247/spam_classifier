@@ -130,6 +130,7 @@ def init_db():
             "feedback_at": "TIMESTAMP",
             "policy_action": "TEXT DEFAULT 'model' CHECK (policy_action IN ('trusted', 'blocked', 'model') OR policy_action IS NULL)",
             "matched_rule_id": "INTEGER REFERENCES mail_rules(id) ON DELETE SET NULL",
+            "is_hidden": "INTEGER NOT NULL DEFAULT 0",
         }
         for column, definition in mail_migrations.items():
             if column not in mail_columns:
@@ -174,6 +175,10 @@ def init_db():
             "ON mail_messages(user_id, received_at DESC)"
         )
         conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mail_messages_visibility "
+            "ON mail_messages(user_id, is_hidden, received_at DESC)"
+        )
+        conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_mail_quarantine_user "
             "ON mail_messages(user_id, is_quarantined)"
         )
@@ -184,6 +189,126 @@ def init_db():
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_mail_rules_match "
             "ON mail_rules(is_active, target_type, target_value)"
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS model_versions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                version TEXT UNIQUE NOT NULL,
+                model_name TEXT NOT NULL,
+                vectorizer TEXT NOT NULL,
+                accuracy REAL,
+                precision REAL,
+                recall REAL,
+                f1 REAL,
+                tn INTEGER,
+                fp INTEGER,
+                fn INTEGER,
+                tp INTEGER,
+                train_size INTEGER,
+                test_size INTEGER,
+                dataset_size INTEGER,
+                vocabulary_size INTEGER,
+                training_time REAL,
+                alpha REAL,
+                ngram_min INTEGER,
+                ngram_max INTEGER,
+                dataset_hash TEXT,
+                model_path TEXT NOT NULL,
+                vectorizer_path TEXT NOT NULL,
+                info_path TEXT NOT NULL,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER NOT NULL DEFAULT 0 CHECK (is_active IN (0, 1)),
+                notes TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_model_versions_one_active
+            ON model_versions(is_active) WHERE is_active = 1
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS model_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT NOT NULL
+                    CHECK (event_type IN ('train', 'activate', 'rollback')),
+                from_version TEXT,
+                to_version TEXT,
+                user_id INTEGER REFERENCES users(id),
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_model_events_created "
+            "ON model_events(created_at DESC)"
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS api_keys (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                key_prefix TEXT NOT NULL,
+                key_hash TEXT UNIQUE NOT NULL,
+                created_by INTEGER NOT NULL REFERENCES users(id),
+                is_active INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0, 1)),
+                last_used_at TIMESTAMP,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS api_prediction_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                api_key_id INTEGER NOT NULL REFERENCES api_keys(id),
+                prediction TEXT NOT NULL CHECK (prediction IN ('spam', 'ham')),
+                spam_probability REAL NOT NULL,
+                ham_probability REAL NOT NULL,
+                confidence REAL NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_api_logs_key_created "
+            "ON api_prediction_logs(api_key_id, created_at DESC)"
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER REFERENCES users(id),
+                action TEXT NOT NULL,
+                category TEXT NOT NULL,
+                target_type TEXT,
+                target_id TEXT,
+                description TEXT,
+                status TEXT NOT NULL DEFAULT 'success'
+                    CHECK (status IN ('success', 'failed')),
+                ip_address TEXT,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_audit_logs_created "
+            "ON audit_logs(created_at DESC)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_audit_logs_filters "
+            "ON audit_logs(category, status, user_id)"
+        )
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS backups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                filename TEXT UNIQUE NOT NULL,
+                file_size INTEGER,
+                created_by INTEGER REFERENCES users(id),
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                status TEXT NOT NULL DEFAULT 'ready'
+                    CHECK (status IN ('ready', 'failed', 'restored')),
+                notes TEXT
+            )
+        """)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_backups_created "
+            "ON backups(created_at DESC)"
         )
 
 
@@ -246,6 +371,35 @@ def update_user_role(user_id, role):
         raise ValueError("Vai trò không hợp lệ.")
     with closing(get_connection()) as conn, conn:
         conn.execute("UPDATE users SET role = ? WHERE id = ?", (role, user_id))
+
+
+def update_user(user_id, name, email, role):
+    name = (name or "").strip()
+    email = (email or "").strip().lower()
+    role = (role or "").strip().lower()
+    if not name or not email:
+        raise ValueError("Tên và Email không được để trống.")
+    if role not in {"admin", "user"}:
+        raise ValueError("Vai trò không hợp lệ.")
+    try:
+        with closing(get_connection()) as conn, conn:
+            cursor = conn.execute("""
+                UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?
+            """, (name, email, role, user_id))
+            return cursor.rowcount > 0
+    except sqlite3.IntegrityError as error:
+        raise ValueError("Email đã tồn tại trong hệ thống.") from error
+
+
+def reset_user_password(user_id, password_hash):
+    if not password_hash:
+        raise ValueError("Password hash không hợp lệ.")
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute(
+            "UPDATE users SET password_hash = ? WHERE id = ?",
+            (password_hash, user_id),
+        )
+        return cursor.rowcount > 0
 
 
 def update_last_login(user_id):
@@ -583,6 +737,10 @@ def save_mail_message(message):
 def get_mail_messages_by_user(user_id, filter_name="all", search="", page=1, per_page=20):
     conditions = ["mail_messages.user_id = ?"]
     params = [user_id]
+    if filter_name == "hidden":
+        conditions.append("mail_messages.is_hidden = 1")
+    else:
+        conditions.append("mail_messages.is_hidden = 0")
     if filter_name in {"spam", "ham"}:
         conditions.append("mail_messages.prediction = ?")
         params.append(filter_name)
@@ -623,9 +781,22 @@ def get_mail_message_for_user(message_id, user_id):
         """, (message_id, user_id)).fetchone()
 
 
+def set_mail_message_hidden(message_id, user_id, is_hidden):
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute("""
+            UPDATE mail_messages SET is_hidden = ?
+            WHERE id = ? AND user_id = ?
+        """, (1 if is_hidden else 0, message_id, user_id))
+        return cursor.rowcount > 0
+
+
 def count_mail_messages_by_user(user_id, filter_name="all", search=""):
     conditions = ["user_id = ?"]
     params = [user_id]
+    if filter_name == "hidden":
+        conditions.append("is_hidden = 1")
+    else:
+        conditions.append("is_hidden = 0")
     if filter_name in {"spam", "ham"}:
         conditions.append("prediction = ?")
         params.append(filter_name)
@@ -650,7 +821,7 @@ def get_mail_statistics(user_id):
                 COALESCE(SUM(prediction = 'spam'), 0) AS spam,
                 COALESCE(SUM(prediction = 'ham'), 0) AS ham,
                 COALESCE(SUM(confidence < 0.65), 0) AS low_confidence
-            FROM mail_messages WHERE user_id = ?
+            FROM mail_messages WHERE user_id = ? AND is_hidden = 0
         """, (user_id,)).fetchone()
 
 
@@ -857,3 +1028,337 @@ def get_feedback_statistics():
                 COALESCE(SUM(allow_training = 1), 0) AS training_opt_in
             FROM mail_feedback
         """).fetchone()
+
+
+def get_model_versions():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT model_versions.*, users.name AS creator_name,
+                   users.email AS creator_email
+            FROM model_versions
+            LEFT JOIN users ON users.id = model_versions.created_by
+            ORDER BY CAST(SUBSTR(version, 2) AS INTEGER) DESC, model_versions.id DESC
+        """).fetchall()
+
+
+def get_model_version(version_id):
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT model_versions.*, users.name AS creator_name,
+                   users.email AS creator_email
+            FROM model_versions
+            LEFT JOIN users ON users.id = model_versions.created_by
+            WHERE model_versions.id = ?
+        """, (version_id,)).fetchone()
+
+
+def get_active_model_version():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT model_versions.*, users.name AS creator_name,
+                   users.email AS creator_email
+            FROM model_versions
+            LEFT JOIN users ON users.id = model_versions.created_by
+            WHERE model_versions.is_active = 1
+            LIMIT 1
+        """).fetchone()
+
+
+def get_max_model_version_number():
+    with closing(get_connection()) as conn:
+        rows = conn.execute("SELECT version FROM model_versions").fetchall()
+    numbers = []
+    for row in rows:
+        version = row["version"]
+        if version.startswith("v") and version[1:].isdigit():
+            numbers.append(int(version[1:]))
+    return max(numbers, default=0)
+
+
+def create_model_version(values, is_active=False):
+    fields = (
+        "version", "model_name", "vectorizer", "accuracy", "precision",
+        "recall", "f1", "tn", "fp", "fn", "tp", "train_size",
+        "test_size", "dataset_size", "vocabulary_size", "training_time",
+        "alpha", "ngram_min", "ngram_max", "dataset_hash", "model_path",
+        "vectorizer_path", "info_path", "created_by", "notes",
+    )
+    params = [values.get(field) for field in fields]
+    params.append(1 if is_active else 0)
+    placeholders = ", ".join("?" for _ in params)
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute(
+            f"INSERT INTO model_versions ({', '.join(fields)}, is_active) "
+            f"VALUES ({placeholders})",
+            params,
+        )
+        return cursor.lastrowid
+
+
+def set_active_model_version(version_id, user_id, event_type="activate"):
+    if event_type not in {"train", "activate", "rollback"}:
+        raise ValueError("Loại sự kiện model không hợp lệ.")
+    with closing(get_connection()) as conn, conn:
+        target = conn.execute(
+            "SELECT id, version FROM model_versions WHERE id = ?",
+            (version_id,),
+        ).fetchone()
+        if not target:
+            raise ValueError("Phiên bản mô hình không tồn tại.")
+        current = conn.execute(
+            "SELECT id, version FROM model_versions WHERE is_active = 1 LIMIT 1"
+        ).fetchone()
+        conn.execute("UPDATE model_versions SET is_active = 0 WHERE is_active = 1")
+        conn.execute(
+            "UPDATE model_versions SET is_active = 1 WHERE id = ?",
+            (version_id,),
+        )
+        conn.execute("""
+            INSERT INTO model_events (
+                event_type, from_version, to_version, user_id
+            ) VALUES (?, ?, ?, ?)
+        """, (
+            event_type,
+            current["version"] if current else None,
+            target["version"],
+            user_id,
+        ))
+
+
+def get_model_events(limit=20):
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT model_events.*, users.name AS user_name,
+                   users.email AS user_email
+            FROM model_events
+            LEFT JOIN users ON users.id = model_events.user_id
+            ORDER BY model_events.id DESC
+            LIMIT ?
+        """, (max(1, int(limit)),)).fetchall()
+
+
+def create_api_key(name, key_prefix, key_hash, created_by):
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute("""
+            INSERT INTO api_keys (name, key_prefix, key_hash, created_by)
+            VALUES (?, ?, ?, ?)
+        """, (name, key_prefix, key_hash, created_by))
+        return cursor.lastrowid
+
+
+def get_api_key_by_hash(key_hash):
+    with closing(get_connection()) as conn:
+        return conn.execute(
+            "SELECT * FROM api_keys WHERE key_hash = ? LIMIT 1",
+            (key_hash,),
+        ).fetchone()
+
+
+def get_api_key(api_key_id):
+    with closing(get_connection()) as conn:
+        return conn.execute(
+            "SELECT * FROM api_keys WHERE id = ?",
+            (api_key_id,),
+        ).fetchone()
+
+
+def get_api_keys():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT api_keys.id, api_keys.name, api_keys.key_prefix,
+                   api_keys.created_by, api_keys.is_active,
+                   api_keys.last_used_at, api_keys.created_at,
+                   users.name AS creator_name, users.email AS creator_email,
+                   COUNT(api_prediction_logs.id) AS total_requests,
+                   COALESCE(SUM(api_prediction_logs.prediction = 'spam'), 0)
+                       AS spam_predictions,
+                   COALESCE(SUM(api_prediction_logs.prediction = 'ham'), 0)
+                       AS ham_predictions
+            FROM api_keys
+            JOIN users ON users.id = api_keys.created_by
+            LEFT JOIN api_prediction_logs
+                ON api_prediction_logs.api_key_id = api_keys.id
+            GROUP BY api_keys.id
+            ORDER BY api_keys.id DESC
+        """).fetchall()
+
+
+def set_api_key_active(api_key_id, is_active):
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute(
+            "UPDATE api_keys SET is_active = ? WHERE id = ?",
+            (1 if is_active else 0, api_key_id),
+        )
+        return cursor.rowcount > 0
+
+
+def update_api_key_last_used(api_key_id):
+    with closing(get_connection()) as conn, conn:
+        conn.execute(
+            "UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (api_key_id,),
+        )
+
+
+def save_api_prediction_log(
+    api_key_id,
+    prediction,
+    spam_probability,
+    ham_probability,
+    confidence,
+):
+    with closing(get_connection()) as conn, conn:
+        conn.execute("""
+            INSERT INTO api_prediction_logs (
+                api_key_id, prediction, spam_probability,
+                ham_probability, confidence
+            ) VALUES (?, ?, ?, ?, ?)
+        """, (
+            api_key_id,
+            prediction,
+            spam_probability,
+            ham_probability,
+            confidence,
+        ))
+
+
+def get_api_key_statistics():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT COUNT(DISTINCT api_keys.id) AS total_keys,
+                   COUNT(DISTINCT CASE WHEN api_keys.is_active = 1
+                       THEN api_keys.id END) AS active_keys,
+                   COUNT(api_prediction_logs.id) AS total_requests,
+                   COALESCE(SUM(api_prediction_logs.prediction = 'spam'), 0)
+                       AS spam_predictions,
+                   COALESCE(SUM(api_prediction_logs.prediction = 'ham'), 0)
+                       AS ham_predictions
+            FROM api_keys
+            LEFT JOIN api_prediction_logs
+                ON api_prediction_logs.api_key_id = api_keys.id
+        """).fetchone()
+
+
+def create_audit_log(
+    user_id,
+    action,
+    category,
+    target_type=None,
+    target_id=None,
+    description=None,
+    status="success",
+    ip_address=None,
+):
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute("""
+            INSERT INTO audit_logs (
+                user_id, action, category, target_type, target_id,
+                description, status, ip_address
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            user_id, action, category, target_type, target_id,
+            description, status, ip_address,
+        ))
+        return cursor.lastrowid
+
+
+def _audit_filter_clause(category="all", status="all", user_id=None, search=""):
+    conditions = []
+    params = []
+    if category != "all":
+        conditions.append("audit_logs.category = ?")
+        params.append(category)
+    if status != "all":
+        conditions.append("audit_logs.status = ?")
+        params.append(status)
+    if user_id is not None:
+        conditions.append("audit_logs.user_id = ?")
+        params.append(user_id)
+    if search:
+        pattern = f"%{search.strip()}%"
+        conditions.append(
+            "(audit_logs.action LIKE ? OR audit_logs.description LIKE ?)"
+        )
+        params.extend((pattern, pattern))
+    return (" WHERE " + " AND ".join(conditions)) if conditions else "", params
+
+
+def get_audit_logs(
+    category="all", status="all", user_id=None, search="", page=1, per_page=20
+):
+    where_clause, params = _audit_filter_clause(
+        category, status, user_id, search
+    )
+    page = max(1, int(page))
+    per_page = max(1, min(int(per_page), 100))
+    with closing(get_connection()) as conn:
+        total = conn.execute(
+            f"SELECT COUNT(1) FROM audit_logs{where_clause}", params
+        ).fetchone()[0]
+        rows = conn.execute(f"""
+            SELECT audit_logs.*, users.name AS user_name,
+                   users.email AS user_email
+            FROM audit_logs
+            LEFT JOIN users ON users.id = audit_logs.user_id
+            {where_clause}
+            ORDER BY audit_logs.created_at DESC, audit_logs.id DESC
+            LIMIT ? OFFSET ?
+        """, (*params, per_page, (page - 1) * per_page)).fetchall()
+        return rows, total
+
+
+def get_audit_statistics():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT COUNT(1) AS total,
+                   COALESCE(SUM(status = 'success'), 0) AS success,
+                   COALESCE(SUM(status = 'failed'), 0) AS failed,
+                   COALESCE(SUM(DATE(created_at) = DATE('now')), 0) AS today
+            FROM audit_logs
+        """).fetchone()
+
+
+def save_backup_record(
+    filename, file_size, created_by=None, status="ready", notes=None
+):
+    if status not in {"ready", "failed", "restored"}:
+        raise ValueError("Trạng thái backup không hợp lệ.")
+    notes = (notes or "").strip() or None
+    with closing(get_connection()) as conn, conn:
+        if created_by is not None:
+            exists = conn.execute(
+                "SELECT 1 FROM users WHERE id = ?", (created_by,)
+            ).fetchone()
+            if not exists:
+                created_by = None
+        conn.execute("""
+            INSERT INTO backups (
+                filename, file_size, created_by, status, notes
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(filename) DO UPDATE SET
+                file_size = excluded.file_size,
+                status = excluded.status,
+                notes = COALESCE(excluded.notes, backups.notes)
+        """, (filename, file_size, created_by, status, notes))
+        return conn.execute(
+            "SELECT id FROM backups WHERE filename = ?", (filename,)
+        ).fetchone()["id"]
+
+
+def get_backup_records():
+    with closing(get_connection()) as conn:
+        return conn.execute("""
+            SELECT backups.*, users.name AS creator_name,
+                   users.email AS creator_email
+            FROM backups
+            LEFT JOIN users ON users.id = backups.created_by
+            ORDER BY backups.created_at DESC, backups.id DESC
+        """).fetchall()
+
+
+def delete_backup_record(filename):
+    with closing(get_connection()) as conn, conn:
+        cursor = conn.execute(
+            "DELETE FROM backups WHERE filename = ?", (filename,)
+        )
+        return cursor.rowcount > 0

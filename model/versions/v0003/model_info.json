@@ -1,0 +1,29 @@
+{
+    "model_name": "Multinomial Naive Bayes",
+    "vectorizer": "TF-IDF",
+    "ngram_range": [
+        1,
+        2
+    ],
+    "unicode_support": true,
+    "alpha": 1.0,
+    "total": 10002,
+    "train_size": 8001,
+    "test_size": 2001,
+    "vocabulary_size": 42078,
+    "accuracy": 0.9730134932533733,
+    "precision": 0.998220640569395,
+    "recall": 0.9136807817589576,
+    "f1": 0.9540816326530612,
+    "tn": 1386,
+    "fp": 1,
+    "fn": 53,
+    "tp": 561,
+    "training_time": 0.48332834243774414,
+    "trained_at": "14/09/2026 13:21:01",
+    "version": "v0003",
+    "dataset_hash": "d6ba8be75e318c9cf231b2aedc2b1b3fa87d846156339461a288b3898b0d6602",
+    "created_by": 1,
+    "model_hash": "bf8e01a2b43ac40af35e83c90019e724796bab620807f68b94b3dd29c85088f2",
+    "vectorizer_hash": "597d9e068f8f0d5ee81487a024a1ace4954e5fab6e245fbd68d4a54564f78810"
+}

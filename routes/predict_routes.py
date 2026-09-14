@@ -2,12 +2,17 @@ import os
 import uuid
 
 import pandas as pd
-from flask import render_template, request, send_from_directory
+from flask import current_app, render_template, request, send_from_directory
 from flask_login import current_user, login_required
 
 from ml.predict import predict_batch_emails, predict_email
 from routes import main_bp
 from services.application_service import get_model_status, save_prediction
+
+
+def _safe_csv_cell(value):
+    text = str(value)
+    return "'" + text if text.startswith(("=", "+", "-", "@")) else text
 
 
 @main_bp.route("/predict", methods=["GET", "POST"])
@@ -115,14 +120,19 @@ def batch_predict():
                                 )
                                 os.makedirs("temp", exist_ok=True)
                                 download_file = f"batch_result_{uuid.uuid4()}.csv"
-                                df.to_csv(
+                                export_df = df.copy()
+                                for column in ("subject", "text"):
+                                    export_df[column] = export_df[column].map(
+                                        _safe_csv_cell
+                                    )
+                                export_df.to_csv(
                                     os.path.join("temp", download_file),
                                     index=False,
                                     encoding="utf-8-sig",
                                 )
                                 results = df.to_dict(orient="records")
-                except (OSError, UnicodeError, pd.errors.ParserError) as error_detail:
-                    print("Batch prediction error:", error_detail)
+                except (OSError, UnicodeError, pd.errors.ParserError):
+                    current_app.logger.exception("Batch CSV processing failed")
                     error = (
                         "Không thể xử lý file CSV. "
                         "Hãy kiểm tra lại định dạng file."

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Sao lưu & Khôi phục - Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="page-heading backup-heading">
+    <div class="page-title mb-0">
+        <h2>Sao lưu &amp; Khôi phục</h2>
+        <p>Bảo vệ database, Dataset và các phiên bản mô hình của hệ thống.</p>
+    </div>
+</div>
+
+<div class="backup-stats mb-4">
+    <div class="backup-stat">
+        <span class="blue"><i class="bi bi-archive"></i></span>
+        <div><small>Tổng bản sao lưu</small><strong>{{ backups|length }}</strong></div>
+    </div>
+    <div class="backup-stat">
+        <span class="green"><i class="bi bi-hdd"></i></span>
+        <div><small>Dung lượng</small><strong>{{ total_size }}</strong></div>
+    </div>
+    <div class="backup-stat wide">
+        <span class="amber"><i class="bi bi-clock-history"></i></span>
+        <div><small>Gần nhất</small><strong>{{ latest_backup.created_at if latest_backup else 'Chưa có bản sao lưu' }}</strong></div>
+    </div>
+</div>
+
+<section class="backup-create-panel mb-4" aria-labelledby="createBackupTitle">
+    <div class="backup-create-copy">
+        <span class="backup-create-icon"><i class="bi bi-database-add"></i></span>
+        <div>
+            <h3 id="createBackupTitle">Tạo bản sao lưu mới</h3>
+            <p>File ZIP không chứa .env, mật khẩu dạng rõ, token OAuth hoặc API Key đầy đủ.</p>
+        </div>
+    </div>
+    <form method="POST" action="{{ url_for('create_backup_route') }}" id="createBackupForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="backupNotes" class="form-label">Ghi chú</label>
+        <div class="input-group">
+            <input id="backupNotes" name="notes" class="form-control" maxlength="500" placeholder="Ví dụ: Trước khi cập nhật Dataset">
+            <button class="btn btn-primary" type="submit" id="createBackupButton">
+                <i class="bi bi-plus-circle"></i><span>Tạo sao lưu</span>
+            </button>
+        </div>
+    </form>
+</section>
+
+<section class="card backup-table-card">
+    <div class="backup-table-heading">
+        <div><h3>Danh sách bản sao lưu</h3><p>Khôi phục luôn tạo một bản pre_restore trước khi thay thế dữ liệu.</p></div>
+        <span>{{ backups|length }} file</span>
+    </div>
+    {% if backups %}
+    <div class="table-responsive">
+        <table class="table align-middle backup-table mb-0">
+            <thead><tr><th>Tên file</th><th>Thời gian</th><th>Kích thước</th><th>Dataset</th><th>Model</th><th>Người tạo</th><th>Trạng thái</th><th class="text-end">Thao tác</th></tr></thead>
+            <tbody>
+            {% for backup in backups %}
+                <tr>
+                    <td><strong><i class="bi bi-file-earmark-zip"></i> {{ backup.filename }}</strong>{% if backup.notes %}<small>{{ backup.notes }}</small>{% endif %}</td>
+                    <td>{{ backup.created_at }}</td>
+                    <td>{{ (backup.file_size / 1048576)|round(2) }} MB</td>
+                    <td>{{ backup.dataset_samples if backup.dataset_samples is not none else '-' }} mẫu</td>
+                    <td>{{ backup.active_model_version or '-' }}</td>
+                    <td>{{ backup.creator_name or ('User #' ~ backup.created_by if backup.created_by else 'Hệ thống') }}</td>
+                    <td><span class="backup-status {{ backup.status }}"><i class="bi {{ 'bi-check-circle-fill' if backup.status != 'failed' else 'bi-x-circle-fill' }}"></i> {{ 'Sẵn sàng' if backup.status == 'ready' else ('Đã khôi phục' if backup.status == 'restored' else 'Không hợp lệ') }}</span></td>
+                    <td>
+                        <div class="backup-actions">
+                            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('download_backup', filename=backup.filename) }}" title="Tải bản sao lưu"><i class="bi bi-download"></i><span>Tải xuống</span></a>
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#restoreModal" data-backup-filename="{{ backup.filename }}" {% if backup.status == 'failed' %}disabled{% endif %}><i class="bi bi-arrow-counterclockwise"></i><span>Khôi phục</span></button>
+                            <form method="POST" action="{{ url_for('delete_backup_route', filename=backup.filename) }}" class="backup-delete-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger" type="submit" title="Xóa bản sao lưu"><i class="bi bi-trash"></i><span>Xóa</span></button></form>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="backup-empty"><i class="bi bi-archive"></i><h4>Chưa có bản sao lưu</h4><p>Tạo bản đầu tiên trước khi thực hiện thay đổi quan trọng.</p></div>
+    {% endif %}
+</section>
+
+<div class="modal fade" id="restoreModal" tabindex="-1" aria-labelledby="restoreModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="restoreBackupForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-header"><h5 class="modal-title" id="restoreModalTitle">Xác nhận khôi phục</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+                <div class="modal-body">
+                    <div class="backup-warning"><i class="bi bi-exclamation-triangle-fill"></i><p>Database, Dataset và model hiện tại sẽ được thay thế. Hệ thống sẽ tự tạo một bản pre_restore trước khi thực hiện.</p></div>
+                    <p class="backup-restore-file">File: <strong id="restoreFilename"></strong></p>
+                    <label for="restoreConfirmation" class="form-label">Nhập <strong>RESTORE</strong> để xác nhận</label>
+                    <input id="restoreConfirmation" name="confirmation" class="form-control" autocomplete="off" required pattern="RESTORE">
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button><button type="submit" class="btn btn-warning"><i class="bi bi-arrow-counterclockwise"></i> Khôi phục dữ liệu</button></div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function () {
+    var createForm = document.getElementById("createBackupForm");
+    var createButton = document.getElementById("createBackupButton");
+    if (createForm) {
+        createForm.addEventListener("submit", function () {
+            createButton.disabled = true;
+            createButton.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Đang tạo...</span>';
+        });
+    }
+    document.querySelectorAll(".backup-delete-form").forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+            if (!window.confirm("Xóa vĩnh viễn bản sao lưu này?")) event.preventDefault();
+        });
+    });
+    var modal = document.getElementById("restoreModal");
+    if (modal) {
+        modal.addEventListener("show.bs.modal", function (event) {
+            var filename = event.relatedTarget.getAttribute("data-backup-filename");
+            document.getElementById("restoreFilename").textContent = filename;
+            document.getElementById("restoreConfirmation").value = "";
+            document.getElementById("restoreBackupForm").action = "/admin/backups/" + encodeURIComponent(filename) + "/restore";
+        });
+    }
+}());
+</script>
+{% endblock %}

@@ -45,9 +45,8 @@
             </div>
         </div>
 
-        <div class="sidebar-section-title">MENU CHÍNH</div>
-
         <nav class="sidebar-nav" aria-label="Điều hướng chính">
+            <div class="sidebar-section-title">TỔNG QUAN</div>
             <a
                 href="{{ url_for('index') }}"
                 class="sidebar-link {% if request.endpoint == 'index' %}active{% endif %}"
@@ -55,6 +54,8 @@
                 <i class="bi bi-grid-1x2"></i>
                 <span>Dashboard</span>
             </a>
+
+            <div class="sidebar-section-title">EMAIL</div>
             <a
                 href="{{ url_for('mail') }}"
                 class="sidebar-link {% if request.endpoint in ['mail', 'mail_message_detail', 'submit_mail_feedback', 'connect_imap', 'connect_google', 'google_callback', 'sync_mail_account', 'disconnect_mail_account'] %}active{% endif %}"
@@ -83,6 +84,15 @@
                 <i class="bi bi-files"></i>
                 <span>Phân loại hàng loạt</span>
             </a>
+            <a
+                href="{{ url_for('history') }}"
+                class="sidebar-link {% if request.endpoint in ['history', 'delete_history', 'delete_all_history'] %}active{% endif %}"
+            >
+                <i class="bi bi-clock-history"></i>
+                <span>Lịch sử</span>
+            </a>
+
+            <div class="sidebar-section-title">MÔ HÌNH AI</div>
             {% if current_user.role == 'admin' %}
             <a
                 href="{{ url_for('dataset') }}"
@@ -113,28 +123,12 @@
                 <span>So sánh thuật toán</span>
             </a>
             <a
-                href="{{ url_for('admin_mail_rules') }}"
-                class="sidebar-link {% if request.endpoint in ['admin_mail_rules', 'add_mail_rule', 'toggle_mail_rule', 'remove_mail_rule', 're_evaluate_mail_rules'] %}active{% endif %}"
+                href="{{ url_for('model_versions') }}"
+                class="sidebar-link {% if request.endpoint in ['model_versions', 'rollback_model_version'] %}active{% endif %}"
             >
-                <i class="bi bi-shield-lock"></i>
-                <span>Quy tắc Email</span>
+                <i class="bi bi-boxes"></i>
+                <span>Phiên bản mô hình</span>
             </a>
-            {% endif %}
-            <a
-                href="{{ url_for('history') }}"
-                class="sidebar-link {% if request.endpoint in ['history', 'delete_history', 'delete_all_history'] %}active{% endif %}"
-            >
-                <i class="bi bi-clock-history"></i>
-                <span>Lịch sử</span>
-            </a>
-            <a
-                href="{{ url_for('algorithm') }}"
-                class="sidebar-link {% if request.endpoint == 'algorithm' %}active{% endif %}"
-            >
-                <i class="bi bi-lightbulb"></i>
-                <span>Thuật toán</span>
-            </a>
-            {% if current_user.role == 'admin' %}
             <a
                 href="{{ url_for('admin_feedback') }}"
                 class="sidebar-link {% if request.endpoint in ['admin_feedback', 'approve_mail_feedback', 'reject_mail_feedback'] %}active{% endif %}"
@@ -142,12 +136,51 @@
                 <i class="bi bi-clipboard-check"></i>
                 <span>Phản hồi mô hình</span>
             </a>
+            {% endif %}
+            <a
+                href="{{ url_for('algorithm') }}"
+                class="sidebar-link {% if request.endpoint == 'algorithm' %}active{% endif %}"
+            >
+                <i class="bi bi-lightbulb"></i>
+                <span>Thuật toán</span>
+            </a>
+
+            {% if current_user.role == 'admin' %}
+            <div class="sidebar-section-title">QUẢN TRỊ</div>
+            <a
+                href="{{ url_for('admin_mail_rules') }}"
+                class="sidebar-link {% if request.endpoint in ['admin_mail_rules', 'add_mail_rule', 'toggle_mail_rule', 'remove_mail_rule', 're_evaluate_mail_rules'] %}active{% endif %}"
+            >
+                <i class="bi bi-shield-lock"></i>
+                <span>Quy tắc Email</span>
+            </a>
+            <a
+                href="{{ url_for('admin_api_keys') }}"
+                class="sidebar-link {% if request.endpoint in ['admin_api_keys', 'create_api_key_route', 'toggle_api_key', 'revoke_api_key', 'api_docs'] %}active{% endif %}"
+            >
+                <i class="bi bi-key"></i>
+                <span>API Keys</span>
+            </a>
             <a
                 href="{{ url_for('users') }}"
                 class="sidebar-link {% if request.endpoint in ['users', 'create_user_route', 'toggle_user_active', 'change_user_role'] %}active{% endif %}"
             >
                 <i class="bi bi-people"></i>
                 <span>Quản lý người dùng</span>
+            </a>
+            <a
+                href="{{ url_for('audit_logs') }}"
+                class="sidebar-link {% if request.endpoint == 'audit_logs' %}active{% endif %}"
+            >
+                <i class="bi bi-journal-text"></i>
+                <span>Nhật ký hệ thống</span>
+            </a>
+            <a
+                href="{{ url_for('admin_backups') }}"
+                class="sidebar-link {% if request.endpoint in ['admin_backups', 'create_backup_route', 'download_backup', 'restore_backup_route', 'delete_backup_route'] %}active{% endif %}"
+            >
+                <i class="bi bi-database-check"></i>
+                <span>Sao lưu &amp; Khôi phục</span>
             </a>
             {% endif %}
         </nav>
@@ -235,6 +268,7 @@
                         <span>{{ current_user.email }}</span>
                     </div>
                     <form method="POST" action="{{ url_for('logout') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="dropdown-item text-danger">
                             <i class="bi bi-box-arrow-right"></i> Đăng xuất
                         </button>

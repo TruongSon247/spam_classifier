@@ -1,0 +1,57 @@
+.backup-heading { margin-bottom: 22px; }
+.backup-stats { display: grid; grid-template-columns: 1fr 1fr 1.5fr; gap: 16px; }
+.backup-stat { display: flex; min-width: 0; min-height: 92px; align-items: center; gap: 13px; padding: 18px; border: 1px solid #e2e8f0; border-radius: 8px; background: #fff; }
+.backup-stat > span { display: grid; flex: 0 0 46px; width: 46px; height: 46px; place-items: center; border-radius: 8px; font-size: 19px; }
+.backup-stat > span.blue { background: #eaf0ff; color: #2563eb; }
+.backup-stat > span.green { background: #eaf9f0; color: #079455; }
+.backup-stat > span.amber { background: #fff5e5; color: #d97706; }
+.backup-stat small, .backup-stat strong { display: block; }
+.backup-stat small { color: #94a3b8; font-size: 10px; }
+.backup-stat strong { margin-top: 4px; color: #0f172a; font-size: 17px; overflow-wrap: anywhere; }
+.backup-stat.wide strong { font-size: 13px; }
+.backup-create-panel { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(360px, 1fr); gap: 24px; align-items: center; padding: 22px; border: 1px solid #dbe4ef; border-radius: 8px; background: #fff; }
+.backup-create-copy { display: flex; align-items: center; gap: 14px; }
+.backup-create-icon { display: grid; flex: 0 0 48px; width: 48px; height: 48px; place-items: center; border-radius: 8px; background: #eaf0ff; color: #2563eb; font-size: 20px; }
+.backup-create-copy h3, .backup-table-heading h3 { margin: 0; color: #0f172a; font-size: 15px; font-weight: 700; }
+.backup-create-copy p, .backup-table-heading p { margin: 4px 0 0; color: #94a3b8; font-size: 10px; }
+.backup-create-panel .form-label { color: #475569; font-size: 10px; font-weight: 600; }
+.backup-create-panel .btn { display: inline-flex; align-items: center; gap: 7px; }
+.backup-table-card { overflow: hidden; }
+.backup-table-heading { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid #e8edf3; }
+.backup-table-heading > span { color: #64748b; font-size: 11px; }
+.backup-table { min-width: 1150px; font-size: 10px; }
+.backup-table th { padding: 12px 11px; background: #f8fafc; color: #64748b; white-space: nowrap; font-size: 9px; }
+.backup-table td { padding: 13px 11px; color: #475569; white-space: nowrap; }
+.backup-table td:first-child strong, .backup-table td:first-child small { display: block; }
+.backup-table td:first-child strong { color: #0f172a; font-size: 11px; }
+.backup-table td:first-child strong i { margin-right: 4px; color: #2563eb; }
+.backup-table td:first-child small { max-width: 240px; margin-top: 3px; overflow: hidden; color: #94a3b8; text-overflow: ellipsis; }
+.backup-status { display: inline-flex; min-height: 24px; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; font-size: 9px; font-weight: 700; }
+.backup-status.ready { background: #eaf9f0; color: #079455; }
+.backup-status.restored { background: #eaf0ff; color: #2563eb; }
+.backup-status.failed { background: #fff0f0; color: #dc2626; }
+.backup-actions { display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
+.backup-actions form { margin: 0; }
+.backup-actions .btn { display: inline-flex; min-height: 32px; align-items: center; gap: 5px; white-space: nowrap; }
+.backup-empty { padding: 56px 20px; text-align: center; color: #94a3b8; }
+.backup-empty i { font-size: 29px; }
+.backup-empty h4 { margin: 8px 0 3px; color: #475569; font-size: 14px; }
+.backup-empty p { margin: 0; font-size: 10px; }
+.backup-warning { display: flex; gap: 12px; padding: 13px; border: 1px solid #f8d58b; border-radius: 8px; background: #fff8e8; color: #92400e; }
+.backup-warning i { flex: 0 0 auto; }
+.backup-warning p { margin: 0; font-size: 12px; }
+.backup-restore-file { margin: 16px 0; color: #64748b; font-size: 12px; overflow-wrap: anywhere; }
+
+@media (max-width: 991.98px) {
+    .backup-create-panel { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 767.98px) {
+    .backup-stats { grid-template-columns: 1fr; }
+    .backup-create-panel { padding: 18px; }
+    .backup-create-panel .input-group { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .backup-create-panel .input-group > * { width: 100%; border-radius: 6px !important; }
+    .backup-create-panel .btn { justify-content: center; }
+    .backup-table-heading { align-items: flex-start; gap: 10px; }
+    .backup-actions .btn span { display: none; }
+}

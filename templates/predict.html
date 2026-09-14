@@ -42,6 +42,7 @@
                 {% endif %}
 
                 <form method="POST" id="predictForm">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-4">
                         <label for="subject" class="form-label fw-semibold">Tiêu đề Email</label>
                         <div class="input-group">

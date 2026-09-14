@@ -210,7 +210,10 @@ class FeedbackIntegrationTest(unittest.TestCase):
                 for row in conn.execute("PRAGMA table_info(mail_messages)")
             }
         self.assertEqual(counts_before, counts_after)
-        self.assertTrue({"is_quarantined", "user_label", "feedback_at"} <= columns)
+        self.assertTrue(
+            {"is_quarantined", "user_label", "feedback_at", "is_hidden"}
+            <= columns
+        )
 
     def read_dataset(self):
         with open(self.dataset_path, encoding="utf-8", newline="") as file:

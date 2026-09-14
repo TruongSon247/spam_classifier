@@ -91,9 +91,16 @@
     <div class="card-body p-4">
         <div class="dashboard-card-title"><div><h4>Model đang sử dụng</h4><p>Thông tin từ lần Train gần nhất</p></div><i class="bi bi-box"></i></div>
         <div class="algorithm-model-grid">
-            <div><span>Thuật toán</span><strong>{{ model_info["model_name"] }}</strong></div><div><span>Vectorizer</span><strong>{{ model_info["vectorizer"] }}</strong></div><div><span>Alpha</span><strong>{{ model_info["alpha"] }}</strong></div><div><span>Vocabulary</span><strong>{{ model_info["vocabulary_size"] }}</strong></div><div><span>Accuracy</span><strong class="text-primary">{{ "%.2f"|format(model_info["accuracy"] * 100) }}%</strong></div><div><span>Huấn luyện lúc</span><strong>{{ model_info["trained_at"] }}</strong></div>
+            <div><span>Phiên bản Active</span><strong>{{ active_version.version if active_version else model_info.get("version", '---') }}</strong></div><div><span>Thuật toán</span><strong>{{ model_info["model_name"] }}</strong></div><div><span>Vectorizer</span><strong>{{ model_info["vectorizer"] }}</strong></div><div><span>Alpha</span><strong>{{ model_info["alpha"] }}</strong></div><div><span>Vocabulary</span><strong>{{ model_info["vocabulary_size"] }}</strong></div><div><span>Accuracy</span><strong class="text-primary">{{ "%.2f"|format(model_info["accuracy"] * 100) }}%</strong></div><div><span>Huấn luyện lúc</span><strong>{{ model_info["trained_at"] }}</strong></div>
         </div>
     </div>
 </div>
 {% endif %}
+
+<div class="card mt-4">
+    <div class="card-body p-4">
+        <div class="dashboard-card-title"><div><h4>REST API Integration</h4><p>Tích hợp mô hình vào ứng dụng bên ngoài</p></div><i class="bi bi-braces"></i></div>
+        <p class="algorithm-description mb-0">Hệ thống cung cấp REST API để ứng dụng khác sử dụng model Multinomial Naive Bayes đang Active cho bài toán phân loại Email SPAM/HAM.</p>
+    </div>
+</div>
 {% endblock %}

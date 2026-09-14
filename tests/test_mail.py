@@ -205,6 +205,50 @@ class MailboxIntegrationTest(unittest.TestCase):
         self.assertEqual(fetch_mock.call_args_list[0].kwargs["max_results"], 200)
         self.assertEqual(fetch_mock.call_args_list[1].kwargs["max_results"], 50)
 
+    def test_hide_filter_resync_and_unhide_preserve_feedback(self):
+        db.save_mail_feedback(self.user_a, self.message_a, "ham")
+        self.login_a()
+        hidden = self.client.post(
+            f"/mail/message/{self.message_a}/hide", follow_redirects=True
+        )
+        self.assertNotIn("Khuyến mãi đặc biệt".encode(), hidden.data)
+        stored = db.get_mail_message_for_user(self.message_a, self.user_a)
+        self.assertEqual(stored["is_hidden"], 1)
+        self.assertIsNotNone(db.get_feedback_by_message(self.user_a, self.message_a))
+
+        hidden_page = self.client.get("/mail?filter=hidden")
+        self.assertIn("Khuyến mãi đặc biệt".encode(), hidden_page.data)
+        self.assertIn("Hiện lại".encode(), hidden_page.data)
+
+        account = db.get_email_account_for_user(self.account_a, self.user_a)
+        existing_email = {
+            "provider_message_id": "a-1", "subject": "Fetched again",
+            "sender_email": "sender@example.com", "body_text": "Same Email",
+            "received_at": "2026-09-13T08:00:00+07:00", "is_read": 0,
+        }
+        result = [{"prediction": "spam", "spam_probability": 0.9, "ham_probability": 0.1, "confidence": 0.9}]
+        with patch("services.mail_service.fetch_recent_imap_messages", return_value=[existing_email]), patch("services.mail_service.predict_batch_emails", return_value=result):
+            sync_email_account(account)
+        self.assertEqual(
+            db.get_mail_message_for_user(self.message_a, self.user_a)["is_hidden"], 1
+        )
+
+        foreign = self.client.post(
+            f"/mail/message/{self.message_b}/unhide", follow_redirects=False
+        )
+        self.assertEqual(foreign.status_code, 302)
+        self.assertEqual(
+            db.get_mail_message_for_user(self.message_b, self.user_b)["is_hidden"], 0
+        )
+        restored = self.client.post(
+            f"/mail/message/{self.message_a}/unhide", follow_redirects=True
+        )
+        self.assertIn("Khuyến mãi đặc biệt".encode(), restored.data)
+        self.assertEqual(
+            db.get_mail_message_for_user(self.message_a, self.user_a)["is_hidden"], 0
+        )
+        self.assertIsNotNone(db.get_feedback_by_message(self.user_a, self.message_a))
+
     def test_gmail_skips_existing_messages_and_handles_rate_limit(self):
         service = Mock()
         service.users.return_value.messages.return_value.list.return_value.execute.return_value = {

@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}REST API Documentation - Naïve Bayes Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="page-heading api-docs-heading"><div class="page-title mb-0"><h2>REST API Documentation</h2><p>Tích hợp mô hình Multinomial Naïve Bayes vào ứng dụng bên ngoài.</p></div><a href="{{ url_for('admin_api_keys') }}" class="btn btn-outline-primary"><i class="bi bi-key me-1"></i> Quản lý API Keys</a></div>
+
+<div class="api-docs-layout">
+    <main>
+        <section class="api-doc-section"><span class="api-doc-label">PREDICTION</span><h3><span class="api-method post">POST</span> /api/v1/predict</h3><p>Phân loại nội dung Email bằng model Naïve Bayes đang Active.</p><h4>Headers</h4><div class="api-parameter"><code>Content-Type</code><span>application/json</span><strong>Bắt buộc</strong></div><div class="api-parameter"><code>X-API-Key</code><span>API Key do Admin cấp</span><strong>Bắt buộc</strong></div><h4>JSON Body</h4><pre><code>{
+  "subject": "Prize",
+  "text": "Congratulations! You won a free prize."
+}</code></pre><h4>Response 200</h4><pre><code>{
+  "success": true,
+  "prediction": "spam",
+  "spam_probability": 0.97,
+  "ham_probability": 0.03,
+  "confidence": 0.97,
+  "model_version": "v0002",
+  "model_outdated": false
+}</code></pre></section>
+
+        <section class="api-doc-section"><span class="api-doc-label">STATUS</span><h3><span class="api-method get">GET</span> /api/v1/health</h3><p>Kiểm tra dịch vụ, trạng thái model và phiên bản đang Active. Endpoint này không yêu cầu API Key.</p></section>
+
+        <section class="api-doc-section"><h3>Ví dụ PowerShell</h3><pre><code>$headers = @{ "X-API-Key" = "YOUR_API_KEY" }
+$body = @{ text = "Congratulations! You won a free prize." } | ConvertTo-Json
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:5000/api/v1/predict" `
+  -Headers $headers -ContentType "application/json" -Body $body</code></pre><h3 class="mt-4">Ví dụ Python</h3><pre><code>import requests
+
+response = requests.post(
+    "http://127.0.0.1:5000/api/v1/predict",
+    headers={"X-API-Key": "YOUR_API_KEY"},
+    json={"text": "Congratulations! You won a free prize."},
+)
+print(response.json())</code></pre></section>
+    </main>
+    <aside class="api-docs-aside"><div><i class="bi bi-shield-lock"></i><h4>Xác thực</h4><p>Chỉ gửi API Key qua header <code>X-API-Key</code>. Không đặt key trong URL.</p></div><div><i class="bi bi-file-earmark-lock"></i><h4>Quyền riêng tư</h4><p>API không lưu subject hoặc nội dung Email, không tạo History hay Quarantine.</p></div><div><i class="bi bi-speedometer2"></i><h4>Production</h4><p>Khi triển khai công khai, nên bổ sung HTTPS và rate limiting.</p></div></aside>
+</div>
+{% endblock %}

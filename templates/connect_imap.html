@@ -5,7 +5,7 @@
 {% block content %}
 <div class="mail-detail-header"><a href="{{ url_for('mail') }}" class="btn btn-light" title="Quay lại hộp thư"><i class="bi bi-arrow-left"></i></a><div class="page-title mb-0"><h2>Kết nối IMAP</h2><p>Thêm hộp thư hỗ trợ giao thức IMAP SSL.</p></div></div>
 <div class="imap-connect-layout mt-4">
-    <section class="card"><div class="card-body p-4"><form method="POST" class="imap-form">
+    <section class="card"><div class="card-body p-4"><form method="POST" class="imap-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="row g-3"><div class="col-md-7"><label for="email_address" class="form-label">Email</label><input id="email_address" name="email_address" type="email" class="form-control" value="{{ values.email_address }}" required></div><div class="col-md-5"><label for="display_name" class="form-label">Tên hiển thị</label><input id="display_name" name="display_name" class="form-control" value="{{ values.display_name }}"></div></div>
         <div class="row g-3"><div class="col-md-8"><label for="imap_host" class="form-label">IMAP Host</label><input id="imap_host" name="imap_host" class="form-control" value="{{ values.imap_host }}" placeholder="imap.example.com" required></div><div class="col-md-4"><label for="imap_port" class="form-label">Port</label><input id="imap_port" name="imap_port" type="number" min="1" max="65535" class="form-control" value="{{ values.imap_port or 993 }}" required></div></div>
         <div><label for="imap_username" class="form-label">Username</label><input id="imap_username" name="imap_username" class="form-control" value="{{ values.imap_username }}" autocomplete="username" required></div>

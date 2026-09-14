@@ -84,6 +84,7 @@
 .mail-pagination { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 14px; border-top: 1px solid var(--border); }
 .mail-pagination span { color: #64748b; font-size: 9px; }
 .mail-detail-header { justify-content: flex-start; }
+.mail-visibility-form { margin-left: auto; }
 .mail-detail-layout { display: grid; grid-template-columns: minmax(0, 1fr) 285px; align-items: start; gap: 18px; }
 .mail-detail-main, .mail-classification-panel, .imap-security-panel { border: 1px solid var(--border); border-radius: 8px; background: #ffffff; }
 .mail-detail-main { min-width: 0; padding: 25px; }
@@ -146,6 +147,9 @@
     .mail-sync-form .mail-sync-limit { width: 100%; }
     .mail-meta { grid-template-columns: minmax(0, 1fr); }
     .mail-detail-main { padding: 18px; }
+    .mail-detail-header { align-items: flex-start; flex-wrap: wrap; }
+    .mail-visibility-form { width: 100%; margin-left: 0; }
+    .mail-visibility-form .btn { width: 100%; }
 }
 @media (max-width: 480px) {
     .mail-connect-actions { grid-template-columns: minmax(0, 1fr); }

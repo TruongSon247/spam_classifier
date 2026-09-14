@@ -3,7 +3,7 @@
 {% block title %}Chi tiết Email - AI Spam Classifier{% endblock %}
 
 {% block content %}
-<div class="mail-detail-header"><a href="{{ url_for('mail') }}" class="btn btn-light" title="Quay lại hộp thư"><i class="bi bi-arrow-left"></i></a><div class="page-title mb-0"><h2>Chi tiết Email</h2><p>Nội dung dạng văn bản thuần đã đồng bộ từ Inbox.</p></div></div>
+<div class="mail-detail-header"><a href="{{ url_for('mail', filter='hidden' if message['is_hidden'] else 'all') }}" class="btn btn-light" title="Quay lại hộp thư"><i class="bi bi-arrow-left"></i></a><div class="page-title mb-0"><h2>Chi tiết Email</h2><p>Nội dung dạng văn bản thuần đã đồng bộ từ Inbox.</p></div><form method="POST" action="{{ url_for('unhide_mail_message' if message['is_hidden'] else 'hide_mail_message', message_id=message['id']) }}" class="mail-visibility-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn {{ 'btn-outline-primary' if message['is_hidden'] else 'btn-outline-secondary' }}"><i class="bi {{ 'bi-eye' if message['is_hidden'] else 'bi-eye-slash' }}"></i> {{ 'Hiện lại' if message['is_hidden'] else 'Ẩn khỏi hệ thống' }}</button></form></div>
 <div class="mail-detail-layout mt-4">
     <section class="mail-detail-main">
         <div class="mail-detail-title"><span class="provider-badge {{ message['account_provider'] }}">{{ message['account_provider']|upper }}</span><h1>{{ message['subject'] or '(Không có tiêu đề)' }}</h1></div>
@@ -33,6 +33,7 @@
             {% endif %}
             {% if not feedback or feedback['status'] == 'pending' %}
             <form method="POST" action="{{ url_for('submit_mail_feedback', message_id=message['id']) }}" class="feedback-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <label class="feedback-consent"><input type="checkbox" name="allow_training" value="1" {% if feedback and feedback['allow_training'] %}checked{% endif %}><span>Cho phép sử dụng nội dung Email này để cải thiện mô hình</span></label>
                 <div class="feedback-actions">
                     <button type="submit" name="label" value="spam" class="btn btn-outline-danger"><i class="bi bi-shield-exclamation"></i> {% if message['prediction'] == 'spam' %}Đúng là Spam{% else %}Đây là Spam{% endif %}</button>

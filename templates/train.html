@@ -100,11 +100,14 @@
                     <h4>Train Model</h4>
                     <p>Hệ thống sẽ chia Dataset thành 80% Training và 20% Testing, sau đó huấn luyện mô hình Multinomial Naive Bayes.</p>
                     <form method="POST" id="trainForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label for="versionNotes" class="form-label text-start w-100">Ghi chú phiên bản <span class="text-muted">(không bắt buộc)</span></label>
+                        <textarea class="form-control mb-3" id="versionNotes" name="notes" maxlength="500" rows="2" placeholder="Ví dụ: Thêm phản hồi Email tiếng Việt"></textarea>
                         <button type="submit" class="btn btn-primary w-100 train-main-button" id="trainButton">
                             <i class="bi bi-play-fill me-1"></i> Huấn luyện mô hình
                         </button>
                     </form>
-                    <small><i class="bi bi-info-circle me-1"></i>File model cũ sẽ được cập nhật sau khi Train thành công.</small>
+                    <small><i class="bi bi-info-circle me-1"></i>Model cũ được giữ trong lịch sử phiên bản.</small>
                 </div>
             </div>
         </div>
@@ -119,11 +122,13 @@
             <div><h4>Huấn luyện thành công</h4><p>Mô hình mới đã được lưu và sẵn sàng sử dụng.</p></div>
         </div>
         <div class="row g-3 mt-2">
-            <div class="col-md-3"><div class="train-result-item"><span>Training</span><strong>{{ result.train_size }}</strong></div></div>
-            <div class="col-md-3"><div class="train-result-item"><span>Testing</span><strong>{{ result.test_size }}</strong></div></div>
-            <div class="col-md-3"><div class="train-result-item"><span>Vocabulary</span><strong>{{ result.vocabulary_size }}</strong></div></div>
-            <div class="col-md-3"><div class="train-result-item highlight"><span>Accuracy</span><strong>{{ "%.2f"|format(result.accuracy * 100) }}%</strong></div></div>
+            <div class="col-md"><div class="train-result-item"><span>Version</span><strong>{{ result.version }}</strong></div></div>
+            <div class="col-md"><div class="train-result-item"><span>Training</span><strong>{{ result.train_size }}</strong></div></div>
+            <div class="col-md"><div class="train-result-item"><span>Testing</span><strong>{{ result.test_size }}</strong></div></div>
+            <div class="col-md"><div class="train-result-item"><span>F1-score</span><strong>{{ "%.2f"|format(result.f1 * 100) }}%</strong></div></div>
+            <div class="col-md"><div class="train-result-item highlight"><span>Accuracy</span><strong>{{ "%.2f"|format(result.accuracy * 100) }}%</strong></div></div>
         </div>
+        <a href="{{ url_for('model_versions') }}" class="btn btn-outline-primary mt-3"><i class="bi bi-clock-history me-1"></i> Xem lịch sử mô hình</a>
         <div class="train-result-footer">
             <div><i class="bi bi-stopwatch"></i> Thời gian: <strong>{{ "%.4f"|format(result.training_time) }} giây</strong></div>
             {% if result.trained_at %}<div><i class="bi bi-calendar-check"></i> {{ result.trained_at }}</div>{% endif %}
@@ -141,6 +146,7 @@
         </div>
         <div class="model-info-grid">
             <div class="model-info-item"><span>Model</span><strong>{{ model_info["model_name"] }}</strong></div>
+            <div class="model-info-item"><span>Version</span><strong>{{ model_info.get("version", active_version.version if active_version else '---') }}</strong></div>
             <div class="model-info-item"><span>Vectorizer</span><strong>{{ model_info["vectorizer"] }}</strong></div>
             <div class="model-info-item"><span>Alpha</span><strong>{{ model_info["alpha"] }}</strong></div>
             <div class="model-info-item"><span>Dataset</span><strong>{{ model_info["total"] }}</strong></div>

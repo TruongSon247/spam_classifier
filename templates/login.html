@@ -39,6 +39,7 @@
                 {% endwith %}
 
                 <form method="POST" class="login-form">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div>
                         <label for="email" class="form-label">Email</label>
                         <div class="login-input"><i class="bi bi-envelope"></i><input id="email" type="email" name="email" class="form-control" value="{{ email }}" autocomplete="email" required autofocus></div>

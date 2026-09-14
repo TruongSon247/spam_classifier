@@ -1,7 +1,11 @@
 import json
+import logging
 import os
 
 from database.db import get_connection, save_prediction as save_prediction_to_db
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_model_status(dataset_path="dataset/spam_dataset.csv"):
@@ -17,6 +21,7 @@ def get_model_status(dataset_path="dataset/spam_dataset.csv"):
         }
 
     try:
+        active_version = None
         model_time = min(
             os.path.getmtime(model_path),
             os.path.getmtime(vectorizer_path),
@@ -27,6 +32,20 @@ def get_model_status(dataset_path="dataset/spam_dataset.csv"):
             if os.path.exists(path)
         ]
         outdated = max(source_times) > model_time
+        try:
+            from services.model_registry_service import (
+                calculate_dataset_hash,
+                get_active_model_version,
+            )
+
+            active_version = get_active_model_version()
+            if active_version and active_version["dataset_hash"]:
+                outdated = (
+                    calculate_dataset_hash(dataset_path)
+                    != active_version["dataset_hash"]
+                ) or outdated
+        except Exception:
+            active_version = None
         if outdated:
             message = (
                 "Dataset hoặc cấu hình AI đã thay đổi. "
@@ -34,15 +53,20 @@ def get_model_status(dataset_path="dataset/spam_dataset.csv"):
             )
         else:
             message = "Mô hình đã sẵn sàng."
-    except (OSError, ValueError) as error:
-        print("Model status error:", error)
+    except (OSError, ValueError):
+        logger.exception("Model status check failed")
         return {
             "trained": False,
             "outdated": True,
             "message": "Không thể kiểm tra trạng thái mô hình.",
         }
 
-    return {"trained": True, "outdated": outdated, "message": message}
+    return {
+        "trained": True,
+        "outdated": outdated,
+        "message": message,
+        "version": active_version["version"] if active_version else None,
+    }
 
 
 def get_model_info():

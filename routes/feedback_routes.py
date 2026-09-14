@@ -21,6 +21,7 @@ from database.db import (
     save_mail_feedback,
 )
 from routes import main_bp
+from services.audit_service import log_audit
 
 
 FEEDBACK_DATASET_PATH = "dataset/spam_dataset.csv"
@@ -45,12 +46,13 @@ def submit_mail_feedback(message_id):
     if not get_mail_message_for_user(message_id, int(current_user.id)):
         abort(403)
     try:
-        save_mail_feedback(
+        feedback = save_mail_feedback(
             int(current_user.id),
             message_id,
             request.form.get("label", ""),
             request.form.get("allow_training") == "1",
         )
+        log_audit("FEEDBACK_CREATE", "feedback", user_id=int(current_user.id), target_type="mail_feedback", target_id=feedback["id"], description=f"Created feedback for message #{message_id}.")
         flash("Đã ghi nhận phản hồi của bạn.", "success")
     except ValueError as error:
         flash(str(error), "danger")
@@ -142,6 +144,7 @@ def approve_mail_feedback(feedback_id):
             "Đã duyệt và bổ sung Email vào Dataset. Model cần train lại.",
             "success",
         )
+    log_audit("FEEDBACK_APPROVE", "feedback", user_id=int(current_user.id), target_type="mail_feedback", target_id=feedback_id, description=f"Approved feedback #{feedback_id} for training.")
     return redirect(url_for("admin_feedback"))
 
 
@@ -150,5 +153,6 @@ def approve_mail_feedback(feedback_id):
 def reject_mail_feedback(feedback_id):
     if not reject_feedback(feedback_id, int(current_user.id)):
         abort(404)
+    log_audit("FEEDBACK_REJECT", "feedback", user_id=int(current_user.id), target_type="mail_feedback", target_id=feedback_id, description=f"Rejected feedback #{feedback_id}.")
     flash("Đã từ chối phản hồi. Dataset không thay đổi.", "info")
     return redirect(url_for("admin_feedback"))

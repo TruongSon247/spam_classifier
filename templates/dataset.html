@@ -113,6 +113,7 @@
                         <td><div class="dataset-email-content">{{ email.text }}</div></td>
                         <td class="text-center">
                             <form method="POST" action="{{ url_for('delete_dataset', index=email['index']) }}" class="dataset-delete-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-sm btn-outline-danger dataset-delete-button" title="Xóa Email" aria-label="Xóa Email">
                                     <i class="bi bi-trash"></i>
                                 </button>
@@ -166,6 +167,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content dataset-modal">
             <form method="POST" action="{{ url_for('add_dataset') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-header">
                     <div>
                         <h5 class="modal-title" id="addEmailModalLabel"><i class="bi bi-plus-circle me-2"></i>Thêm Email</h5>
@@ -200,6 +202,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content dataset-modal">
             <form method="POST" action="{{ url_for('import_dataset') }}" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-header">
                     <div>
                         <h5 class="modal-title" id="importModalLabel"><i class="bi bi-cloud-arrow-up me-2"></i>Import Dataset</h5>

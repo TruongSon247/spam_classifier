@@ -215,6 +215,33 @@ text
 
 Mỗi lần xử lý tối đa 500 Email. Kết quả batch không được ghi vào History; ứng dụng tạo file tải xuống trong `temp/`.
 
+## REST API
+
+Admin tạo API Key tại `/admin/api-keys`. Key đầy đủ chỉ hiển thị một lần và
+database chỉ lưu SHA-256; client phải gửi key qua header `X-API-Key`.
+
+Endpoint dự đoán:
+
+```text
+POST /api/v1/predict
+Content-Type: application/json
+X-API-Key: YOUR_API_KEY
+```
+
+```json
+{
+  "subject": "Prize",
+  "text": "Congratulations! You won a free prize."
+}
+```
+
+Response chứa `prediction`, xác suất SPAM/HAM, `confidence`, phiên bản model đang
+Active và trạng thái outdated. API không lưu nội dung Email vào History,
+Quarantine hoặc database. Xem ví dụ PowerShell/Python đầy đủ tại `/api-docs`.
+
+Endpoint `GET /api/v1/health` không yêu cầu API Key. Khi triển khai production,
+nên bật HTTPS và bổ sung rate limiting.
+
 ## Đánh giá
 
 Các metric sử dụng lớp `spam` làm lớp dương:
@@ -241,3 +268,40 @@ Ba thuật toán trên trang **So sánh thuật toán** dùng cùng Dataset hợ
 - Thêm cross-validation và tối ưu siêu tham số.
 - Tích hợp Email API và xác thực đa yếu tố.
 - Đóng gói triển khai bằng Docker hoặc dịch vụ cloud.
+
+## Audit và system log
+
+Admin xem các thao tác quan trọng tại `/admin/audit-logs`. Audit chỉ lưu metadata
+an toàn, không lưu mật khẩu, credential, token, API Key đầy đủ hoặc nội dung Email.
+Log vận hành nằm tại `logs/app.log`, tự xoay ở mức 2 MB và giữ tối đa 5 bản sao.
+Khi triển khai production nên cấu hình thời hạn lưu audit phù hợp.
+
+## Sao lưu và khôi phục
+
+Admin quản lý các bản sao lưu cục bộ tại `/admin/backups`. Mỗi file ZIP gồm database
+SQLite, Dataset, model đang hoạt động, toàn bộ lịch sử `model/versions/` và manifest
+checksum. File `.env`, log, thư mục môi trường ảo, OAuth token và API Key dạng đầy đủ
+không được đưa vào bản sao lưu.
+
+Trước khi khôi phục, hệ thống kiểm tra cấu trúc ZIP, chống Zip Slip, đối chiếu SHA-256,
+chạy `PRAGMA integrity_check`, đọc thử Dataset và nạp thử model/vectorizer. Mỗi lần
+restore luôn tự tạo `pre_restore_YYYYMMDD_HHMMSS.zip`; nếu bước này thất bại thì dữ
+liệu hiện tại không bị thay đổi.
+
+Thư mục `backups/` chỉ lưu trên máy chạy ứng dụng và không được commit lên Git. Khi
+triển khai thật nên sao chép định kỳ sang vùng lưu trữ khác có mã hóa và chính sách
+giữ phiên bản phù hợp.
+
+## Security
+
+- Mật khẩu được băm bằng helper bảo mật của Werkzeug và quyền Admin/User được kiểm tra phía server.
+- Form Web dùng CSRF token; REST API được exempt CSRF và tiếp tục xác thực bằng `X-API-Key` dạng hash.
+- Credential Gmail/IMAP được mã hóa; OAuth dùng scope `gmail.readonly`, state và PKCE.
+- Upload CSV được giới hạn 10 MB, kiểm tra extension, cấu trúc và dữ liệu trước khi xử lý.
+- Session/Remember cookie dùng `HttpOnly`, `SameSite=Lax`; production HTTPS tự bật cookie `Secure` và HSTS.
+- Login giới hạn 5 lần/phút, REST prediction giới hạn 60 request/phút theo IP bằng memory storage.
+- Response có CSP tương thích giao diện hiện tại, `nosniff`, chống iframe và hạn chế quyền trình duyệt.
+- Audit không lưu password, token, credential hay API Key đầy đủ; Backup/Restore kiểm tra checksum và Zip Slip.
+
+Development local dùng HTTP nên có thể đặt `OAUTHLIB_INSECURE_TRANSPORT=1` trong `.env`.
+Production phải đặt `APP_ENV=production`, dùng HTTPS, cấu hình `FLASK_SECRET_KEY` mạnh và không bật insecure transport.

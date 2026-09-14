@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Lỗi {{ status_code }} - Spam Classifier{% endblock %}
+
+{% block content %}
+<section class="system-error" aria-labelledby="errorTitle">
+    <span><i class="bi bi-exclamation-triangle"></i></span>
+    <small>LỖI {{ status_code }}</small>
+    <h2 id="errorTitle">{{ message }}</h2>
+    <p>Yêu cầu không thể hoàn tất. Hãy quay lại trang trước hoặc Dashboard.</p>
+    <a href="{{ url_for('index') }}" class="btn btn-primary"><i class="bi bi-house"></i> Dashboard</a>
+</section>
+{% endblock %}

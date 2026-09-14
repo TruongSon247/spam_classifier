@@ -14,6 +14,7 @@ from services.mail_rule_service import (
     create_validated_mail_rule,
     re_evaluate_existing_messages,
 )
+from services.audit_service import log_audit
 
 
 @main_bp.route("/admin/mail-rules")
@@ -46,13 +47,16 @@ def admin_mail_rules():
 @admin_required
 def add_mail_rule():
     try:
-        create_validated_mail_rule(
+        rule_id = create_validated_mail_rule(
             request.form.get("rule_type"),
             request.form.get("target_type"),
             request.form.get("target_value"),
             request.form.get("description"),
             int(current_user.id),
         )
+        rule_type = request.form.get("rule_type", "").strip().lower()
+        target_type = request.form.get("target_type", "").strip().lower()
+        log_audit("RULE_CREATE", "rule", user_id=int(current_user.id), target_type="mail_rule", target_id=rule_id, description=f"Created {rule_type} {target_type} rule.")
         flash("Đã thêm quy tắc Email.", "success")
     except ValueError as error:
         flash(str(error), "danger")
@@ -66,6 +70,8 @@ def toggle_mail_rule(id):
     if not rule:
         abort(404)
     set_mail_rule_active(id, not bool(rule["is_active"]))
+    enabled = not bool(rule["is_active"])
+    log_audit("RULE_ENABLE" if enabled else "RULE_DISABLE", "rule", user_id=int(current_user.id), target_type="mail_rule", target_id=id, description=f"{'Enabled' if enabled else 'Disabled'} Email rule #{id}.")
     flash("Đã cập nhật trạng thái quy tắc.", "success")
     return redirect(url_for("admin_mail_rules"))
 

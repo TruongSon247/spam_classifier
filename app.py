@@ -9,9 +9,15 @@ from flask import Flask
 load_dotenv()
 
 from auth import login_manager
+from config import load_security_config
 from database.db import create_user, init_db
+from extensions import limiter
 from routes import main_bp
+from routes.api_routes import api_bp
 from services.application_service import get_model_status
+from services.audit_service import configure_application_logging
+from services.model_registry_service import initialize_model_registry
+from services.security_service import register_security, validate_credential_key
 
 
 def register_cli_commands(app):
@@ -44,18 +50,20 @@ def register_cli_commands(app):
 
 def create_app():
     app = Flask(__name__)
-    app.config["SECRET_KEY"] = os.environ.get(
-        "FLASK_SECRET_KEY",
-        os.environ.get("SECRET_KEY", "dev-change-this-secret-key"),
-    )
-    app.config.update(
-        SESSION_COOKIE_HTTPONLY=True,
-        SESSION_COOKIE_SAMESITE="Lax",
-    )
+    configure_application_logging(app)
+    load_security_config(app)
 
     login_manager.init_app(app)
+    limiter.init_app(app)
+    validate_credential_key(app)
     init_db()
+    try:
+        initialize_model_registry()
+    except Exception:
+        app.logger.exception("Model registry initialization failed")
     app.register_blueprint(main_bp, name="")
+    app.register_blueprint(api_bp)
+    register_security(app, api_bp)
 
     @app.context_processor
     def inject_global_data():

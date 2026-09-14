@@ -5,7 +5,7 @@
 {% block content %}
 <div class="mail-rules-header">
     <div class="page-title mb-0"><h2>Quy tắc Email</h2><p>Quản lý các địa chỉ Email và Domain được tin cậy hoặc chặn.</p></div>
-    <form method="POST" action="{{ url_for('re_evaluate_mail_rules') }}" class="rule-reevaluate-form"><button type="submit" class="btn btn-outline-primary"><i class="bi bi-arrow-repeat"></i> Đánh giá lại Email cũ</button></form>
+    <form method="POST" action="{{ url_for('re_evaluate_mail_rules') }}" class="rule-reevaluate-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-outline-primary"><i class="bi bi-arrow-repeat"></i> Đánh giá lại Email cũ</button></form>
 </div>
 
 <div class="mail-rule-stats my-4">
@@ -16,6 +16,7 @@
 <section class="mail-rule-add-panel" aria-labelledby="addRuleTitle">
     <div class="mail-rule-section-title"><div><h3 id="addRuleTitle">Thêm quy tắc</h3><p>Email chính xác được ưu tiên hơn quy tắc Domain.</p></div><i class="bi bi-shield-plus"></i></div>
     <form method="POST" action="{{ url_for('add_mail_rule') }}" class="mail-rule-add-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div><label for="ruleType" class="form-label">Rule Type</label><select id="ruleType" name="rule_type" class="form-select" required><option value="whitelist">Whitelist</option><option value="blacklist">Blacklist</option></select></div>
         <div><label for="targetType" class="form-label">Target Type</label><select id="targetType" name="target_type" class="form-select" required><option value="email">Email</option><option value="domain">Domain</option></select></div>
         <div><label for="targetValue" class="form-label">Value</label><input id="targetValue" name="target_value" class="form-control" maxlength="253" placeholder="user@example.com" required></div>
@@ -45,7 +46,7 @@
             <td>{% if rule['is_active'] %}<span class="rule-status active"><i class="bi bi-check-circle-fill"></i> Active</span>{% else %}<span class="rule-status disabled"><i class="bi bi-pause-circle-fill"></i> Disabled</span>{% endif %}</td>
             <td><div class="rule-creator"><strong>{{ rule['created_by_name'] }}</strong><small>{{ rule['created_by_email'] }}</small></div></td>
             <td class="rule-date">{{ rule['created_at'] }}</td>
-            <td><div class="mail-rule-actions"><form method="POST" action="{{ url_for('toggle_mail_rule', id=rule['id']) }}"><button type="submit" class="btn btn-sm {% if rule['is_active'] %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{% if rule['is_active'] %}Vô hiệu hóa{% else %}Kích hoạt{% endif %}"><i class="bi {% if rule['is_active'] %}bi-pause{% else %}bi-play{% endif %}"></i></button></form><form method="POST" action="{{ url_for('remove_mail_rule', id=rule['id']) }}" class="rule-delete-form"><button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa quy tắc"><i class="bi bi-trash"></i></button></form></div></td>
+            <td><div class="mail-rule-actions"><form method="POST" action="{{ url_for('toggle_mail_rule', id=rule['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-sm {% if rule['is_active'] %}btn-outline-secondary{% else %}btn-outline-success{% endif %}" title="{% if rule['is_active'] %}Vô hiệu hóa{% else %}Kích hoạt{% endif %}"><i class="bi {% if rule['is_active'] %}bi-pause{% else %}bi-play{% endif %}"></i></button></form><form method="POST" action="{{ url_for('remove_mail_rule', id=rule['id']) }}" class="rule-delete-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-sm btn-outline-danger" title="Xóa quy tắc"><i class="bi bi-trash"></i></button></form></div></td>
         </tr>{% endfor %}
     </tbody></table></div>
     {% else %}<div class="mail-empty"><i class="bi bi-shield-check"></i><h4>Không có quy tắc phù hợp</h4><p>Thêm quy tắc mới hoặc thay đổi bộ lọc.</p></div>{% endif %}

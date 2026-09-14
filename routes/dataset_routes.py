@@ -1,8 +1,10 @@
 import pandas as pd
-from flask import flash, redirect, render_template, request, url_for
+from flask import current_app, flash, redirect, render_template, request, url_for
+from flask_login import current_user
 
 from auth import admin_required
 from routes import main_bp
+from services.audit_service import log_audit
 
 
 DATASET_PATH = "dataset/spam_dataset.csv"
@@ -59,6 +61,7 @@ def add_dataset():
     new_row = pd.DataFrame([{"label": label, "text": text}])
     df = pd.concat([df, new_row], ignore_index=True)
     df.to_csv(DATASET_PATH, index=False)
+    log_audit("DATASET_ADD", "dataset", user_id=int(current_user.id), target_type="dataset", description=f"Added one {label.upper()} sample.")
     flash("Thêm email vào Dataset thành công.", "success")
     return redirect(url_for("dataset"))
 
@@ -70,6 +73,7 @@ def delete_dataset(index):
     if 0 <= index < len(df):
         df = df.drop(df.index[index]).reset_index(drop=True)
         df.to_csv(DATASET_PATH, index=False)
+        log_audit("DATASET_DELETE", "dataset", user_id=int(current_user.id), target_type="dataset_row", target_id=index, description="Deleted one Dataset sample.")
         flash("Xóa email khỏi Dataset thành công.", "success")
     else:
         flash("Không tìm thấy email cần xóa.", "danger")
@@ -112,8 +116,10 @@ def import_dataset():
         old_df = pd.read_csv(DATASET_PATH)
         final_df = pd.concat([old_df, new_df], ignore_index=True)
         final_df.to_csv(DATASET_PATH, index=False)
+        log_audit("DATASET_IMPORT", "dataset", user_id=int(current_user.id), target_type="dataset", description=f"Imported {imported_count} valid samples.")
         flash(f"Import thành công {imported_count} email.", "success")
-    except Exception as error:
-        print("Lỗi Import CSV:", error)
+    except Exception:
+        current_app.logger.exception("Dataset import failed")
+        log_audit("DATASET_IMPORT_FAILED", "dataset", user_id=int(current_user.id), target_type="dataset", description="Unable to read or import the CSV file.", status="failed")
         flash("Không thể đọc file CSV. Vui lòng kiểm tra lại định dạng.", "danger")
     return redirect(url_for("dataset"))

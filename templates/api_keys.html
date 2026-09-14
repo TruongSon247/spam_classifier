@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+
+{% block title %}API Keys - Naïve Bayes Spam Classifier{% endblock %}
+
+{% block content %}
+<div class="page-heading api-key-heading">
+    <div class="page-title mb-0"><h2>Quản lý API Keys</h2><p>Cấp quyền cho ứng dụng bên ngoài sử dụng REST API phân loại Email.</p></div>
+    <a href="{{ url_for('api_docs') }}" class="btn btn-outline-primary"><i class="bi bi-file-code me-1"></i> Tài liệu API</a>
+</div>
+
+{% if new_api_key %}
+<section class="api-key-reveal mb-4" aria-labelledby="newApiKeyTitle">
+    <div class="api-key-reveal-icon"><i class="bi bi-key-fill"></i></div>
+    <div class="api-key-reveal-content">
+        <h3 id="newApiKeyTitle">API Key đã được tạo</h3>
+        <p>API Key chỉ hiển thị một lần. Hãy lưu ở nơi an toàn trước khi rời trang.</p>
+        <div class="input-group">
+            <input id="newApiKey" class="form-control" value="{{ new_api_key.full_key }}" readonly aria-label="API Key mới">
+            <button type="button" class="btn btn-primary" id="copyApiKey" title="Sao chép API Key"><i class="bi bi-copy"></i> Sao chép</button>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<div class="api-key-stats mb-4">
+    {% set cards = [('Tổng API Keys', statistics.total_keys, 'bi-key', 'blue'), ('Đang hoạt động', statistics.active_keys, 'bi-check-circle', 'green'), ('Tổng Requests', statistics.total_requests, 'bi-arrow-left-right', 'purple'), ('SPAM / HAM', statistics.spam_predictions ~ ' / ' ~ statistics.ham_predictions, 'bi-bar-chart', 'orange')] %}
+    {% for label, value, icon, color in cards %}<div class="api-key-stat"><span class="{{ color }}"><i class="bi {{ icon }}"></i></span><div><small>{{ label }}</small><strong>{{ value }}</strong></div></div>{% endfor %}
+</div>
+
+<section class="api-key-create-panel mb-4">
+    <div><h3>Tạo API Key mới</h3><p>Đặt tên giúp nhận biết ứng dụng đang sử dụng key.</p></div>
+    <form method="POST" action="{{ url_for('create_api_key_route') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <label for="apiKeyName" class="form-label">Tên API Key</label>
+        <div class="input-group"><input id="apiKeyName" name="name" class="form-control" maxlength="100" placeholder="Ví dụ: Website Demo" required><button type="submit" class="btn btn-primary"><i class="bi bi-plus-circle me-1"></i> Tạo API Key</button></div>
+    </form>
+</section>
+
+<section class="card api-key-table-card">
+    <div class="api-key-table-header"><div><h3>Danh sách API Keys</h3><p>Key đầy đủ không thể xem lại sau khi tạo.</p></div><span>{{ api_keys|length }} keys</span></div>
+    {% if api_keys %}
+    <div class="table-responsive"><table class="table align-middle api-key-table mb-0"><thead><tr><th>Tên</th><th>Prefix</th><th>Trạng thái</th><th>Requests</th><th>SPAM / HAM</th><th>Người tạo</th><th>Ngày tạo</th><th>Lần dùng cuối</th><th class="text-end">Thao tác</th></tr></thead><tbody>
+        {% for api_key in api_keys %}<tr>
+            <td><strong>{{ api_key.name }}</strong></td>
+            <td><code>{{ api_key.key_prefix }}...</code></td>
+            <td><span class="api-key-status {{ 'active' if api_key.is_active else 'disabled' }}"><i class="bi {{ 'bi-check-circle-fill' if api_key.is_active else 'bi-slash-circle' }}"></i> {{ 'Đang hoạt động' if api_key.is_active else 'Đã vô hiệu hóa' }}</span></td>
+            <td>{{ api_key.total_requests }}</td><td><span class="text-danger">{{ api_key.spam_predictions }}</span> / <span class="text-success">{{ api_key.ham_predictions }}</span></td>
+            <td><div class="api-key-creator"><strong>{{ api_key.creator_name }}</strong><small>{{ api_key.creator_email }}</small></div></td>
+            <td>{{ api_key.created_at }}</td><td>{{ api_key.last_used_at or 'Chưa sử dụng' }}</td>
+            <td><div class="api-key-actions"><form method="POST" action="{{ url_for('toggle_api_key', api_key_id=api_key.id) }}" class="api-key-toggle-form" data-active="{{ 1 if api_key.is_active else 0 }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit" class="btn btn-sm {{ 'btn-outline-danger' if api_key.is_active else 'btn-outline-success' }}" title="{{ 'Vô hiệu hóa API Key' if api_key.is_active else 'Kích hoạt API Key' }}"><i class="bi {{ 'bi-slash-circle' if api_key.is_active else 'bi-play-circle' }}"></i> {{ 'Vô hiệu hóa' if api_key.is_active else 'Kích hoạt' }}</button></form></div></td>
+        </tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<div class="api-key-empty"><i class="bi bi-key"></i><h4>Chưa có API Key</h4><p>Tạo key đầu tiên để bắt đầu tích hợp REST API.</p></div>{% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}<script>
+const copyApiKeyButton = document.getElementById("copyApiKey");
+if (copyApiKeyButton) { copyApiKeyButton.addEventListener("click", async function () { const input = document.getElementById("newApiKey"); try { await navigator.clipboard.writeText(input.value); this.innerHTML = '<i class="bi bi-check-lg"></i> Đã sao chép'; } catch (error) { input.select(); document.execCommand("copy"); } }); }
+document.querySelectorAll(".api-key-toggle-form[data-active='1']").forEach(function (form) { form.addEventListener("submit", function (event) { if (!window.confirm("API Key này sẽ không thể tiếp tục gọi REST API. Bạn có chắc chắn?")) { event.preventDefault(); } }); });
+</script>{% endblock %}

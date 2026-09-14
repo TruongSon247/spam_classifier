@@ -8,6 +8,8 @@ __pycache__/
 .vscode/
 .idea/
 .env
+logs/
+backups/
 client_secret*.json
 credentials*.json
 token*.json

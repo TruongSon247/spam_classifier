@@ -4,6 +4,7 @@ from flask_login import login_required
 
 from routes import main_bp
 from services.application_service import get_model_info
+from services.model_registry_service import get_active_model_version
 
 
 @main_bp.route("/algorithm")
@@ -28,4 +29,5 @@ def algorithm():
         spam_count=spam_count,
         ham_count=ham_count,
         model_info=get_model_info(),
+        active_version=get_active_model_version(),
     )

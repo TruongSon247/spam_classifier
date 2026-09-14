@@ -55,6 +55,7 @@
                 <p>Ba thuật toán sẽ học cùng tập Training và được đánh giá trên cùng tập Testing.</p>
             </div>
             <form method="POST" id="compareForm">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <button type="submit" class="btn btn-primary" id="compareButton">
                     <i class="bi bi-play-fill me-1"></i> Bắt đầu so sánh
                 </button>

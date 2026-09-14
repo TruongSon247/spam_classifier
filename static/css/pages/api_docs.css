@@ -1,0 +1,11 @@
+.api-docs-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+.api-docs-layout > main { display: grid; gap: 18px; }
+.api-doc-section { padding: 24px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }
+.api-doc-section h3 { margin: 0 0 9px; font-size: 16px; }.api-doc-section h4 { margin: 20px 0 8px; color: #334155; font-size: 11px; }.api-doc-section > p { color: #64748b; font-size: 11px; }
+.api-doc-label { display: block; margin-bottom: 8px; color: #2563eb; font-size: 9px; font-weight: 700; }
+.api-method { display: inline-flex; min-width: 47px; min-height: 25px; align-items: center; justify-content: center; margin-right: 8px; border-radius: 6px; color: #fff; font-size: 9px; }.api-method.post { background: #2563eb; }.api-method.get { background: #16a34a; }
+.api-parameter { display: grid; grid-template-columns: 130px 1fr auto; gap: 14px; align-items: center; padding: 10px 12px; border-bottom: 1px solid #edf1f5; font-size: 10px; }.api-parameter code { color: #2563eb; }.api-parameter span { color: #64748b; }.api-parameter strong { color: #b45309; font-size: 8px; }
+.api-doc-section pre { margin: 0; padding: 16px; overflow: auto; border-radius: 8px; background: #111827; color: #dbeafe; font-size: 10px; line-height: 1.7; }
+.api-docs-aside { display: grid; gap: 12px; position: sticky; top: 98px; }.api-docs-aside > div { padding: 18px; border: 1px solid var(--border); border-radius: 8px; background: #fff; }.api-docs-aside i { color: #2563eb; font-size: 21px; }.api-docs-aside h4 { margin: 9px 0 5px; font-size: 12px; }.api-docs-aside p { margin: 0; color: #64748b; font-size: 9px; line-height: 1.6; }.api-docs-aside code { color: #2563eb; }
+@media (max-width: 991.98px) { .api-docs-layout { grid-template-columns: minmax(0, 1fr); }.api-docs-aside { grid-template-columns: repeat(3, minmax(0, 1fr)); position: static; } }
+@media (max-width: 767.98px) { .api-docs-heading { align-items: stretch; flex-direction: column; }.api-docs-heading .btn { width: 100%; }.api-docs-aside { grid-template-columns: minmax(0, 1fr); }.api-parameter { grid-template-columns: 1fr; gap: 4px; } }

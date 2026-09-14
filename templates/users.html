@@ -24,15 +24,12 @@
                         <td>{{ user['last_login'] or 'Chưa đăng nhập' }}</td>
                         <td>
                             <div class="users-actions">
-                                <form method="POST" action="{{ url_for('change_user_role', user_id=user['id']) }}">
-                                    <select name="role" class="form-select form-select-sm" aria-label="Vai trò của {{ user['name'] }}" onchange="this.form.submit()">
-                                        <option value="user" {% if user['role'] == 'user' %}selected{% endif %}>User</option>
-                                        <option value="admin" {% if user['role'] == 'admin' %}selected{% endif %}>Admin</option>
-                                    </select>
-                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-primary btn-icon" data-bs-toggle="modal" data-bs-target="#editUser{{ user['id'] }}" title="Sửa người dùng" aria-label="Sửa người dùng {{ user['name'] }}"><i class="bi bi-pencil"></i></button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary btn-icon" data-bs-toggle="modal" data-bs-target="#resetPassword{{ user['id'] }}" title="Đặt lại mật khẩu" aria-label="Đặt lại mật khẩu cho {{ user['name'] }}"><i class="bi bi-key"></i></button>
                                 <form method="POST" action="{{ url_for('toggle_user_active', user_id=user['id']) }}">
-                                    <button type="submit" class="btn btn-sm {% if user['is_active'] %}btn-outline-danger{% else %}btn-outline-success{% endif %}" {% if user['id']|string == current_user.id %}disabled title="Không thể khóa tài khoản đang dùng"{% endif %}>
-                                        {% if user['is_active'] %}<i class="bi bi-lock"></i> Khóa{% else %}<i class="bi bi-unlock"></i> Mở khóa{% endif %}
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-sm btn-icon {% if user['is_active'] %}btn-outline-danger{% else %}btn-outline-success{% endif %}" title="{% if user['id']|string == current_user.id %}Không thể khóa tài khoản đang dùng{% elif user['is_active'] %}Khóa người dùng{% else %}Mở khóa người dùng{% endif %}" aria-label="{% if user['is_active'] %}Khóa{% else %}Mở khóa{% endif %} {{ user['name'] }}" {% if user['id']|string == current_user.id %}disabled{% endif %}>
+                                        <i class="bi {% if user['is_active'] %}bi-lock{% else %}bi-unlock{% endif %}"></i>
                                     </button>
                                 </form>
                             </div>
@@ -47,8 +44,29 @@
     </div>
 </div>
 
+{% for user in users %}
+<div class="modal fade" id="editUser{{ user['id'] }}" tabindex="-1" aria-labelledby="editUserTitle{{ user['id'] }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="POST" action="{{ url_for('edit_user', user_id=user['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header"><h5 class="modal-title" id="editUserTitle{{ user['id'] }}"><i class="bi bi-pencil"></i> Sửa người dùng</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+        <div class="modal-body">
+            <div class="mb-3"><label for="editName{{ user['id'] }}" class="form-label">Họ và tên</label><input id="editName{{ user['id'] }}" name="name" class="form-control" value="{{ user['name'] }}" required maxlength="100"></div>
+            <div class="mb-3"><label for="editEmail{{ user['id'] }}" class="form-label">Email</label><input id="editEmail{{ user['id'] }}" type="email" name="email" class="form-control" value="{{ user['email'] }}" required maxlength="200"></div>
+            <div><label for="editRole{{ user['id'] }}" class="form-label">Vai trò</label><select id="editRole{{ user['id'] }}" name="role" class="form-select"><option value="user" {% if user['role'] == 'user' %}selected{% endif %}>User</option><option value="admin" {% if user['role'] == 'admin' %}selected{% endif %}>Admin</option></select></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button><button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Lưu thay đổi</button></div>
+    </form></div></div>
+</div>
+<div class="modal fade" id="resetPassword{{ user['id'] }}" tabindex="-1" aria-labelledby="resetPasswordTitle{{ user['id'] }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="POST" action="{{ url_for('reset_user_password_route', user_id=user['id']) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-header"><h5 class="modal-title" id="resetPasswordTitle{{ user['id'] }}"><i class="bi bi-key"></i> Đặt lại mật khẩu</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
+        <div class="modal-body"><p class="user-reset-target">Người dùng: <strong>{{ user['name'] }}</strong></p><div class="mb-3"><label for="resetPasswordValue{{ user['id'] }}" class="form-label">Mật khẩu mới</label><input id="resetPasswordValue{{ user['id'] }}" type="password" name="password" class="form-control" required minlength="8" autocomplete="new-password"></div><div><label for="resetPasswordConfirm{{ user['id'] }}" class="form-label">Xác nhận mật khẩu</label><input id="resetPasswordConfirm{{ user['id'] }}" type="password" name="password_confirmation" class="form-control" required minlength="8" autocomplete="new-password"></div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-light" data-bs-dismiss="modal">Hủy</button><button type="submit" class="btn btn-primary"><i class="bi bi-key"></i> Đặt lại mật khẩu</button></div>
+    </form></div></div>
+</div>
+{% endfor %}
+
 <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="POST" action="{{ url_for('create_user_route') }}">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content"><form method="POST" action="{{ url_for('create_user_route') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="modal-header"><h5 class="modal-title" id="createUserTitle"><i class="bi bi-person-plus"></i> Thêm người dùng</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button></div>
         <div class="modal-body">
             <div class="mb-3"><label for="newName" class="form-label">Họ và tên</label><input id="newName" name="name" class="form-control" required maxlength="100"></div>

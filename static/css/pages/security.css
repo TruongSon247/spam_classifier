@@ -1,0 +1,13 @@
+.system-error {
+    display: grid;
+    min-height: 430px;
+    place-items: center;
+    align-content: center;
+    padding: 32px 20px;
+    text-align: center;
+}
+.system-error > span { display: grid; width: 62px; height: 62px; place-items: center; border-radius: 8px; background: #fff3e3; color: #d97706; font-size: 27px; }
+.system-error small { margin-top: 14px; color: #94a3b8; font-size: 10px; font-weight: 700; }
+.system-error h2 { margin: 7px 0 5px; color: #0f172a; font-size: 22px; }
+.system-error p { margin: 0 0 18px; color: #64748b; font-size: 12px; }
+.system-error .btn { display: inline-flex; align-items: center; gap: 7px; }

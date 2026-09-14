@@ -100,6 +100,8 @@
 .users-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .users-actions .form-select { width: 92px; font-size: 9px; }
 .users-actions .btn { min-width: 76px; }
+.users-actions .btn-icon { display: inline-grid; width: 34px; min-width: 34px; height: 32px; padding: 0; place-items: center; }
+.user-reset-target { margin: 0 0 16px; color: #64748b; font-size: 10px; }
 .history-owner strong, .history-owner span { display: block; }
 .history-owner strong { color: #334155; font-size: 10px; }
 .history-owner span { margin-top: 3px; color: #94a3b8; font-size: 8px; }
